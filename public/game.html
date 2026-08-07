@@ -292,11 +292,23 @@
 
     // horizontal
     p.vx = 0;
-    if (keys['ArrowLeft']) p.vx = -SPEED;
-    if (keys['ArrowRight']) p.vx = SPEED;
+    if (keys['ArrowLeft']) { p.vx = -SPEED; p.face = -1; }
+    if (keys['ArrowRight']) { p.vx = SPEED; p.face = 1; }
     p.x += p.vx;
     if (p.x < 0) p.x = 0;
     if (p.x + p.w > W) p.x = W - p.w;
+
+    // shrink animation + invulnerability timers
+    if (p.invuln > 0) p.invuln--;
+    if (p.hitFx > 0) p.hitFx--;
+    if (Math.abs(p.scale - p.targetScale) > 0.002) {
+      const bottom = p.y + p.h;
+      p.scale += (p.targetScale - p.scale) * 0.18;
+      p.w = HERO_W * p.scale;
+      p.h = HERO_H * p.scale;
+      p.y = bottom - p.h;
+    }
+
 
     // vertical
     const prevBottom = p.y + p.h;
