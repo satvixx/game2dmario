@@ -160,7 +160,8 @@
     o.connect(g); g.connect(a.destination);
     o.start(); o.stop(a.currentTime + dur + 0.02);
   }
-  const jumpSound = () => tone(180, 0.18, 'sine', 0.07, 320);      // low, subtle
+  const jumpSound = () => { tone(300, 0.16, 'square', 0.05, 720); setTimeout(() => tone(520, 0.14, 'sine', 0.05, 900), 40); };
+  const hurtSound = () => { tone(420, 0.18, 'square', 0.08, 160); setTimeout(() => tone(220, 0.28, 'sawtooth', 0.07, 110), 120); };
   const coinSound = () => { tone(880, 0.09, 'triangle', 0.10); setTimeout(() => tone(1320, 0.12, 'triangle', 0.09), 70); };
   const winSound  = () => [0,120,240,420].forEach((d,i) => setTimeout(() => tone([523,659,784,1047][i], 0.25, 'triangle', 0.1), d));
   const loseSound = () => tone(320, 0.5, 'sawtooth', 0.08, 90);
