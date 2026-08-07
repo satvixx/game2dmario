@@ -572,6 +572,8 @@
     keys = {};
     loseEl.classList.remove('show');
     winEl.classList.remove('show');
+    clearTimeout(warnTimer);
+    warnEl.classList.remove('show');
     createCanvas();
     state = newState();
     raf = requestAnimationFrame(loop);
