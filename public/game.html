@@ -388,6 +388,17 @@
     }
   }
 
+  function hitBurst(x, y) {
+    for (let i = 0; i < 26; i++) {
+      const a = Math.random() * Math.PI * 2, sp = 1.5 + Math.random() * 3.4;
+      state.sparkles.push({
+        x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp - 1.4,
+        life: 30 + Math.random() * 22, max: 52,
+        c: ['#ffffff', '#ffb3a7', '#ff6b5e'][i % 3]
+      });
+    }
+  }
+
   /* ---------- draw ---------- */
   function draw() {
     const s = state;
