@@ -179,7 +179,7 @@
   function randomCoins(platforms) {
     const coins = [];
     const surfaces = [
-      { x: 40, w: W - 200, y: GROUND_Y },
+      { x: 180, w: W - 340, y: GROUND_Y },
       ...platforms.map(p => ({ x: p.x + 14, w: p.w - 28, y: p.y }))
     ];
     // 4 on the ground, 2 on each platform = 10
