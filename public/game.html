@@ -216,18 +216,31 @@
   function newState() {
     const platforms = makePlatforms();
     return {
-      player: { x: 60, y: GROUND_Y - 34, w: 30, h: 34, vx: 0, vy: 0, onGround: true },
+      player: {
+        x: 60, y: GROUND_Y - HERO_H, w: HERO_W, h: HERO_H,
+        vx: 0, vy: 0, onGround: true, face: 1,
+        scale: 1, targetScale: 1, invuln: 0, hitFx: 0
+      },
       platforms,
       coins: randomCoins(platforms),
       enemy: { x: 420, y: GROUND_Y - 18, r: 18, vx: 2.1 },
       flag: { x: W - 70, y: GROUND_Y - 96, w: 6, h: 96 },
       sparkles: [],
       decor: makeDecor(),
+      lives: 2,
       score: 0,
       over: false,
       won: false
     };
   }
+
+  let warnTimer = null;
+  function showWarning() {
+    warnEl.classList.add('show');
+    clearTimeout(warnTimer);
+    warnTimer = setTimeout(() => warnEl.classList.remove('show'), 2200);
+  }
+
 
   /* ---------- canvas creation (fresh canvas each restart, fixed size) ---------- */
   function createCanvas() {
