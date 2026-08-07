@@ -1,24 +1,36 @@
 import { createFileRoute } from "@tanstack/react-router";
 
-// No head() here: the home route inherits title/description/og/twitter from
-// __root.tsx, and ships no og:image so serve-time hosting can inject the
-// project's social preview (explicit og:image or latest screenshot).
 export const Route = createFileRoute("/")({
+  head: () => ({
+    meta: [
+      { title: "Red Square Adventure — HTML5 Canvas Platformer" },
+      {
+        name: "description",
+        content:
+          "Jump across platforms, dodge the orange enemy, collect 10 coins and reach the golden flag in this browser platformer.",
+      },
+      { property: "og:title", content: "Red Square Adventure — Canvas Platformer" },
+      {
+        property: "og:description",
+        content:
+          "Arrow keys to move, spacebar to jump. Collect coins, avoid the enemy, grab the flag to win.",
+      },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary_large_image" },
+    ],
+  }),
   component: Index,
 });
 
-// IMPORTANT: Replace this placeholder. See ./README.md for routing conventions.
 function Index() {
   return (
-    <div
-      className="flex min-h-screen items-center justify-center"
-      style={{ backgroundColor: "#fcfbf8" }}
-    >
-      <img
-        data-lovable-blank-page-placeholder="REMOVE_THIS"
-        src="https://cdn.gpteng.co/blank-app-v1.svg"
-        alt="Your app will live here!"
+    <main className="min-h-screen w-full bg-[#1b2430]">
+      <h1 className="sr-only">Red Square Adventure — HTML5 canvas platformer game</h1>
+      <iframe
+        src="/game.html"
+        title="Red Square Adventure game"
+        className="h-screen w-full border-0"
       />
-    </div>
+    </main>
   );
 }
