@@ -108,6 +108,7 @@
       <p id="winScore">Score: 0</p>
       <button data-restart>Play Again</button>
     </div>
+    <div id="warn">⚠️ <span>Ouch! One extra life used — be careful!</span></div>
   </div>
 </div>
 
@@ -117,12 +118,20 @@
   const GROUND_H = 70;
   const GROUND_Y = H - GROUND_H;      // top surface of the ground
   const GRAVITY = 0.6;
-  const JUMP_V = -12.2;               // max jump height ~124px
-  const SPEED = 4.2;
+  const JUMP_V = -15.2;               // higher, more flexible jump
+  const JUMP_CUT = 0.42;              // release early -> shorter hop
+  const SPEED = 4.6;
+
+  const HERO_W = 48, HERO_H = 64;     // full-size character
+  const SHRINK = 0.72;                // size after losing a life
+
+  const heroImg = new Image();
+  heroImg.src = '/hero.png';
 
   const stage = document.getElementById('stage');
   const loseEl = document.getElementById('lose');
   const winEl = document.getElementById('win');
+  const warnEl = document.getElementById('warn');
   const winScoreEl = document.getElementById('winScore');
 
   let canvas, ctx, raf = null;
