@@ -268,7 +268,13 @@
       }
     }
   });
-  window.addEventListener('keyup', e => { keys[e.key] = false; });
+  window.addEventListener('keyup', e => {
+    keys[e.key] = false;
+    // variable jump height: releasing early cuts the rise short
+    if ((e.key === ' ' || e.key === 'Spacebar' || e.key === 'ArrowUp') && state && state.player.vy < 0) {
+      state.player.vy *= JUMP_CUT;
+    }
+  });
 
   /* ---------- update ---------- */
   function update() {
