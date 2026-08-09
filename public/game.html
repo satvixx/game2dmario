@@ -825,7 +825,9 @@
     // enemies
     s.enemies.forEach(e => {
       const ex = e.x - cam;
-      if (ex < -60 || ex > W + 60) return;
+      if (ex < -60 || ex > W + 60 || e.alpha <= 0.01) return;
+      ctx.save();
+      ctx.globalAlpha = e.alpha;
       ctx.fillStyle = '#ff8c1a';
       ctx.beginPath(); ctx.arc(ex, e.y, e.r, 0, Math.PI * 2); ctx.fill();
       ctx.fillStyle = '#fff';
