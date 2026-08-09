@@ -93,15 +93,45 @@
     transition: opacity .25s ease, transform .25s ease;
   }
   #warn.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+  #controls {
+    position: absolute;
+    top: 60px;
+    right: 16px;
+    display: flex;
+    gap: 8px;
+  }
+  #controls button {
+    width: 38px;
+    height: 34px;
+    border: none;
+    border-radius: 10px;
+    cursor: pointer;
+    background: rgba(0,0,0,.35);
+    color: #fff;
+    font-size: 15px;
+    line-height: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    backdrop-filter: blur(2px);
+  }
+  #controls button:hover { background: rgba(0,0,0,.55); }
+  #controls button.off { opacity: .55; }
+  .overlay .best { color: #ffd34d; font-weight: 700; }
 </style>
 </head>
 <body>
 <div id="wrap">
   <div id="stage">
     <!-- canvas is injected here and re-created on restart -->
+    <div id="controls">
+      <button id="pauseBtn" title="Pause" aria-label="Pause or resume">❚❚</button>
+      <button id="soundBtn" title="Sound on/off" aria-label="Toggle sound">🔊</button>
+    </div>
     <div class="overlay" id="lose">
       <h1>Game Over</h1>
       <p class="loseTime">Time: 0:00</p>
+      <p class="best loseBest">Best time: —</p>
       <p>The orange blob got you.</p>
       <button data-restart>Restart</button>
     </div>
@@ -109,11 +139,13 @@
       <h1>YOU WIN!</h1>
       <p id="winTime">Time: 0:00</p>
       <p id="winScore">Score: 0</p>
+      <p class="best" id="winBest">Best time: —</p>
       <button data-restart>Play Again</button>
     </div>
     <div id="warn">⚠️ <span>Ouch! One extra life used — be careful!</span></div>
   </div>
 </div>
+
 
 <script>
 (function () {
