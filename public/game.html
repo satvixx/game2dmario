@@ -185,25 +185,28 @@
   // vertical steps <= 105px, horizontal gaps <= 150px (both within jump range).
   function makePlatforms() {
     const platforms = [];
-    const LEVELS = [GROUND_Y - 105, GROUND_Y - 210, GROUND_Y - 315];
+    const LEVELS = [GROUND_Y - 100, GROUND_Y - 195, GROUND_Y - 290];
+    let li = 0;
+    let cursor = 150;
     for (let s = 0; s < SCREENS; s++) {
       const count = Math.random() < 0.5 ? 3 : 4;
-      const x0 = s * W;
-      const slotW = W / count;
-      let li = Math.floor(Math.random() * 2); // start low-ish on each screen
+      const endX = (s + 1) * W;
       for (let i = 0; i < count; i++) {
-        const w = rnd(150, 195);
-        const x = x0 + i * slotW + rnd(10, Math.max(12, slotW - w - 10));
-        platforms.push({ x, y: LEVELS[li], w, h: 18 });
+        const w = rnd(160, 205);
+        if (cursor + w > endX - 20) break;
+        platforms.push({ x: cursor, y: LEVELS[li], w, h: 18 });
+        cursor += w + rnd(70, 125);   // horizontal gap always inside jump range
         // step up or down by exactly one level (always reachable)
         if (li === 0) li = 1;
         else if (li === 2) li = 1;
         else li = Math.random() < 0.55 ? 2 : 0;
       }
+      if (cursor < endX + 40) cursor = Math.max(cursor, endX + rnd(40, 90));
     }
     platforms.sort((a, b) => a.x - b.x);
     return platforms;
   }
+
 
   function randomCoins(platforms) {
     const coins = [];
