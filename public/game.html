@@ -468,7 +468,8 @@
 
   function draw() {
     const s = state;
-    const cam = s.camX;
+    const cam = Math.round(s.camX * 2) / 2;
+
 
     // sky
     const sky = ctx.createLinearGradient(0, 0, 0, H);
