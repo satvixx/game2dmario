@@ -695,19 +695,22 @@
     ctx.fillText('⏱ ' + fmtTime(s.elapsed), W - 28, 35);
     ctx.textAlign = 'left';
 
-    // HUD — screen indicator
-    const screenNo = Math.min(SCREENS, Math.floor(p.x / W) + 1);
-    ctx.fillStyle = 'rgba(0,0,0,.28)';
-    ctx.beginPath(); ctx.roundRect(W - 132, 58, 116, 28, 10); ctx.fill();
-    ctx.fillStyle = 'rgba(255,255,255,.9)';
-    ctx.font = 'bold 14px system-ui, sans-serif';
-    ctx.textAlign = 'right';
-    ctx.fillText('Area ' + screenNo + ' / ' + SCREENS, W - 28, 72);
-    ctx.textAlign = 'left';
+    if (paused) {
+      ctx.fillStyle = 'rgba(10,16,24,.45)';
+      ctx.fillRect(0, 0, W, H);
+      ctx.fillStyle = '#fff';
+      ctx.font = 'bold 42px system-ui, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('Paused', W / 2, H / 2);
+      ctx.textAlign = 'left';
+    }
   }
 
-  function loop() {
-    update();
+  let lastT = 0;
+  function loop(t) {
+    const dt = lastT ? Math.min(2.2, (t - lastT) / 16.6667) : 1;
+    lastT = t;
+    if (!paused) update(dt);
     draw();
     raf = requestAnimationFrame(loop);
   }
@@ -715,6 +718,8 @@
   function start() {
     if (raf) cancelAnimationFrame(raf);
     keys = {};
+    lastT = 0;
+    setPaused(false);
     loseEl.classList.remove('show');
     winEl.classList.remove('show');
     clearTimeout(warnTimer);
@@ -724,9 +729,35 @@
     raf = requestAnimationFrame(loop);
   }
 
+  /* ---------- pause / sound controls ---------- */
+  function setPaused(v) {
+    paused = v;
+    pauseBtn.textContent = v ? '▶' : '❚❚';
+    pauseBtn.title = v ? 'Resume' : 'Pause';
+    if (state && !v) state.startTime = performance.now() - state.elapsed;
+    if (v) stopMusic(); else if (soundOn && state && !state.over && !state.won) startMusic();
+  }
+  pauseBtn.addEventListener('click', () => { if (state && !state.over && !state.won) setPaused(!paused); pauseBtn.blur(); });
+  soundBtn.addEventListener('click', () => {
+    soundOn = !soundOn;
+    localStorage.setItem('rsa_sound', soundOn ? '1' : '0');
+    soundBtn.textContent = soundOn ? '🔊' : '🔇';
+    soundBtn.classList.toggle('off', !soundOn);
+    if (soundOn && !paused) startMusic(); else stopMusic();
+    soundBtn.blur();
+  });
+  soundBtn.textContent = soundOn ? '🔊' : '🔇';
+  soundBtn.classList.toggle('off', !soundOn);
+
+  window.addEventListener('keydown', e => {
+    if (e.key === 'p' || e.key === 'P') { if (state && !state.over && !state.won) setPaused(!paused); }
+    if (e.key === 'm' || e.key === 'M') soundBtn.click();
+  });
+
   document.querySelectorAll('[data-restart]').forEach(b => b.addEventListener('click', () => { start(); b.blur(); }));
 
   start();
+
 })();
 </script>
 </body>
