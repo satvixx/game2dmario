@@ -319,23 +319,24 @@
   }
 
   /* ---------- input ---------- */
+  const isJumpKey = k => k === ' ' || k === 'Spacebar' || k === 'ArrowUp' || k === 'w' || k === 'W';
   window.addEventListener('keydown', e => {
-    if (['ArrowLeft','ArrowRight','ArrowUp',' ','Spacebar'].includes(e.key)) e.preventDefault();
+    if (['ArrowLeft','ArrowRight','ArrowUp','ArrowDown',' ','Spacebar'].includes(e.key)) e.preventDefault();
+    if (e.repeat) return;
     keys[e.key] = true;
-    if ((e.key === ' ' || e.key === 'Spacebar' || e.key === 'ArrowUp') && state && !state.over && !state.won) {
-      if (state.player.onGround) {
-        state.player.vy = JUMP_V;
-        state.player.onGround = false;
-        jumpSound();
-      }
+    if (isJumpKey(e.key) && state && !state.over && !state.won) {
+      state.player.buffer = 9;      // buffered jump: fires as soon as landing/coyote allows
+      state.player.holding = true;
     }
   });
   window.addEventListener('keyup', e => {
     keys[e.key] = false;
-    if ((e.key === ' ' || e.key === 'Spacebar' || e.key === 'ArrowUp') && state && state.player.vy < 0) {
-      state.player.vy *= JUMP_CUT;
+    if (isJumpKey(e.key) && state) {
+      state.player.holding = false;
+      if (state.player.vy < 0) state.player.vy *= JUMP_CUT;
     }
   });
+
 
   /* ---------- update ---------- */
   function update(dt) {
