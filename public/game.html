@@ -93,15 +93,45 @@
     transition: opacity .25s ease, transform .25s ease;
   }
   #warn.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+  #controls {
+    position: absolute;
+    top: 60px;
+    right: 16px;
+    display: flex;
+    gap: 8px;
+  }
+  #controls button {
+    width: 38px;
+    height: 34px;
+    border: none;
+    border-radius: 10px;
+    cursor: pointer;
+    background: rgba(0,0,0,.35);
+    color: #fff;
+    font-size: 15px;
+    line-height: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    backdrop-filter: blur(2px);
+  }
+  #controls button:hover { background: rgba(0,0,0,.55); }
+  #controls button.off { opacity: .55; }
+  .overlay .best { color: #ffd34d; font-weight: 700; }
 </style>
 </head>
 <body>
 <div id="wrap">
   <div id="stage">
     <!-- canvas is injected here and re-created on restart -->
+    <div id="controls">
+      <button id="pauseBtn" title="Pause" aria-label="Pause or resume">❚❚</button>
+      <button id="soundBtn" title="Sound on/off" aria-label="Toggle sound">🔊</button>
+    </div>
     <div class="overlay" id="lose">
       <h1>Game Over</h1>
       <p class="loseTime">Time: 0:00</p>
+      <p class="best loseBest">Best time: —</p>
       <p>The orange blob got you.</p>
       <button data-restart>Restart</button>
     </div>
@@ -109,11 +139,13 @@
       <h1>YOU WIN!</h1>
       <p id="winTime">Time: 0:00</p>
       <p id="winScore">Score: 0</p>
+      <p class="best" id="winBest">Best time: —</p>
       <button data-restart>Play Again</button>
     </div>
     <div id="warn">⚠️ <span>Ouch! One extra life used — be careful!</span></div>
   </div>
 </div>
+
 
 <script>
 (function () {
@@ -139,11 +171,18 @@
   const warnEl = document.getElementById('warn');
   const winScoreEl = document.getElementById('winScore');
   const winTimeEl = document.getElementById('winTime');
+  const winBestEl = document.getElementById('winBest');
   const loseTimeEl = document.querySelector('#lose .loseTime');
+  const loseBestEl = document.querySelector('#lose .loseBest');
+  const pauseBtn = document.getElementById('pauseBtn');
+  const soundBtn = document.getElementById('soundBtn');
 
   let canvas, ctx, raf = null;
   let keys = {};
   let state;
+  let paused = false;
+  let soundOn = localStorage.getItem('rsa_sound') !== '0';
+
 
   const rnd = (a, b) => a + Math.random() * (b - a);
   const pick = arr => arr[Math.floor(Math.random() * arr.length)];
@@ -152,17 +191,27 @@
     return Math.floor(t / 60) + ':' + String(t % 60).padStart(2, '0');
   }
 
+  /* ---------- best time ---------- */
+  function bestMs() { const v = parseFloat(localStorage.getItem('rsa_best') || ''); return isFinite(v) ? v : null; }
+  function saveBest(ms) {
+    const b = bestMs();
+    if (b === null || ms < b) { localStorage.setItem('rsa_best', String(Math.round(ms))); return true; }
+    return false;
+  }
+  function bestText() { const b = bestMs(); return b === null ? 'Best time: —' : 'Best time: ' + fmtTime(b); }
+
   /* ---------- audio (WebAudio, no files) ---------- */
-  let actx = null;
+  let actx = null, master = null;
   function audio() {
     if (!actx) {
       const AC = window.AudioContext || window.webkitAudioContext;
-      if (AC) actx = new AC();
+      if (AC) { actx = new AC(); master = actx.createGain(); master.gain.value = 1; master.connect(actx.destination); }
     }
     if (actx && actx.state === 'suspended') actx.resume();
     return actx;
   }
   function tone(freq, dur, type, gain, slideTo) {
+    if (!soundOn) return;
     const a = audio(); if (!a) return;
     const o = a.createOscillator(), g = a.createGain();
     o.type = type || 'sine';
@@ -171,7 +220,7 @@
     g.gain.setValueAtTime(0.0001, a.currentTime);
     g.gain.exponentialRampToValueAtTime(gain, a.currentTime + 0.012);
     g.gain.exponentialRampToValueAtTime(0.0001, a.currentTime + dur);
-    o.connect(g); g.connect(a.destination);
+    o.connect(g); g.connect(master);
     o.start(); o.stop(a.currentTime + dur + 0.02);
   }
   const jumpSound = () => { tone(300, 0.16, 'square', 0.05, 720); setTimeout(() => tone(520, 0.14, 'sine', 0.05, 900), 40); };
@@ -180,30 +229,70 @@
   const winSound  = () => [0,120,240,420].forEach((d,i) => setTimeout(() => tone([523,659,784,1047][i], 0.25, 'triangle', 0.1), d));
   const loseSound = () => tone(320, 0.5, 'sawtooth', 0.08, 90);
 
+  /* ---------- background music (cheerful chiptune loop) ---------- */
+  const MELODY = [
+    659,784,880,784, 659,587,523,587, 659,784,880,988, 880,784,659,587,
+    523,659,784,659, 587,698,880,698, 784,988,1047,988, 880,784,659,523
+  ];
+  const BASS = [131,131,165,165, 196,196,165,165, 131,131,175,175, 196,196,147,147];
+  let musicTimer = null, step = 0;
+  function musicNote(freq, dur, type, gain) {
+    const a = audio(); if (!a || !master) return;
+    const o = a.createOscillator(), g = a.createGain(), t = a.currentTime;
+    o.type = type; o.frequency.setValueAtTime(freq, t);
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(gain, t + 0.02);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.connect(g); g.connect(master);
+    o.start(t); o.stop(t + dur + 0.02);
+  }
+  function startMusic() {
+    if (!soundOn || musicTimer) return;
+    if (!audio()) return;
+    const beat = 190;
+    musicTimer = setInterval(() => {
+      musicNote(MELODY[step % MELODY.length], 0.16, 'square', 0.035);
+      if (step % 2 === 0) musicNote(BASS[Math.floor(step / 2) % BASS.length], 0.3, 'triangle', 0.055);
+      if (step % 4 === 2) musicNote(1568, 0.04, 'square', 0.012);
+      step++;
+    }, beat);
+  }
+  function stopMusic() { if (musicTimer) { clearInterval(musicTimer); musicTimer = null; } }
+  // browsers require a gesture before audio starts
+  ['keydown', 'pointerdown'].forEach(ev => window.addEventListener(ev, function once() {
+    audio();
+    if (soundOn && !paused && state && !state.over && !state.won) startMusic();
+    window.removeEventListener(ev, once);
+  }));
+
+
   /* ---------- level generation ---------- */
   // Platforms form one reachable chain across all 7 screens:
   // vertical steps <= 105px, horizontal gaps <= 150px (both within jump range).
   function makePlatforms() {
     const platforms = [];
-    const LEVELS = [GROUND_Y - 105, GROUND_Y - 210, GROUND_Y - 315];
+    const LEVELS = [GROUND_Y - 100, GROUND_Y - 195, GROUND_Y - 290];
+    let li = 0;
+    let cursor = 150;
     for (let s = 0; s < SCREENS; s++) {
       const count = Math.random() < 0.5 ? 3 : 4;
-      const x0 = s * W;
-      const slotW = W / count;
-      let li = Math.floor(Math.random() * 2); // start low-ish on each screen
+      const endX = (s + 1) * W - (s === SCREENS - 1 ? 130 : 0);
       for (let i = 0; i < count; i++) {
-        const w = rnd(150, 195);
-        const x = x0 + i * slotW + rnd(10, Math.max(12, slotW - w - 10));
-        platforms.push({ x, y: LEVELS[li], w, h: 18 });
+        const w = rnd(160, 205);
+        if (cursor + w > endX - 20) break;
+        platforms.push({ x: cursor, y: LEVELS[li], w, h: 18 });
+        cursor += w + rnd(70, 125);   // horizontal gap always inside jump range
         // step up or down by exactly one level (always reachable)
         if (li === 0) li = 1;
         else if (li === 2) li = 1;
         else li = Math.random() < 0.55 ? 2 : 0;
       }
+
     }
     platforms.sort((a, b) => a.x - b.x);
     return platforms;
   }
+
 
   function randomCoins(platforms) {
     const coins = [];
@@ -279,6 +368,7 @@
       player: {
         x: 60, y: GROUND_Y - HERO_H, w: HERO_W, h: HERO_H,
         vx: 0, vy: 0, onGround: true, face: 1,
+        coyote: 8, buffer: 0, holding: false,
         scale: 1, targetScale: 1, invuln: 0, hitFx: 0
       },
       platforms,
@@ -296,6 +386,7 @@
       won: false
     };
   }
+
 
   let warnTimer = null;
   function showWarning() {
@@ -319,62 +410,91 @@
   }
 
   /* ---------- input ---------- */
+  const isJumpKey = k => k === ' ' || k === 'Spacebar' || k === 'ArrowUp' || k === 'w' || k === 'W';
   window.addEventListener('keydown', e => {
-    if (['ArrowLeft','ArrowRight','ArrowUp',' ','Spacebar'].includes(e.key)) e.preventDefault();
+    if (['ArrowLeft','ArrowRight','ArrowUp','ArrowDown',' ','Spacebar'].includes(e.key)) e.preventDefault();
+    if (e.repeat) return;
     keys[e.key] = true;
-    if ((e.key === ' ' || e.key === 'Spacebar' || e.key === 'ArrowUp') && state && !state.over && !state.won) {
-      if (state.player.onGround) {
-        state.player.vy = JUMP_V;
-        state.player.onGround = false;
-        jumpSound();
-      }
+    if (isJumpKey(e.key) && state && !state.over && !state.won) {
+      state.player.buffer = 9;      // buffered jump: fires as soon as landing/coyote allows
+      state.player.holding = true;
     }
   });
   window.addEventListener('keyup', e => {
     keys[e.key] = false;
-    if ((e.key === ' ' || e.key === 'Spacebar' || e.key === 'ArrowUp') && state && state.player.vy < 0) {
-      state.player.vy *= JUMP_CUT;
+    if (isJumpKey(e.key) && state) {
+      state.player.holding = false;
+      if (state.player.vy < 0) state.player.vy *= JUMP_CUT;
     }
   });
 
+
   /* ---------- update ---------- */
-  function update() {
+  function update(dt) {
     const s = state, p = s.player;
 
     s.decor.clouds.forEach(c => {
-      c.x += c.v;
+      c.x += c.v * dt;
       if (c.x - 90 * c.s > WORLD_W) { c.x = -90 * c.s; c.y = 30 + Math.random() * 140; }
     });
-    s.sparkles.forEach(sp => { sp.x += sp.vx; sp.y += sp.vy; sp.vy += 0.08; sp.life -= 1; });
+    s.sparkles.forEach(sp => { sp.x += sp.vx * dt; sp.y += sp.vy * dt; sp.vy += 0.08 * dt; sp.life -= dt; });
     s.sparkles = s.sparkles.filter(sp => sp.life > 0);
 
     if (s.over || s.won) return;
 
     s.elapsed = performance.now() - s.startTime;
 
-    // horizontal
-    p.vx = 0;
-    if (keys['ArrowLeft']) { p.vx = -SPEED; p.face = -1; }
-    if (keys['ArrowRight']) { p.vx = SPEED; p.face = 1; }
-    p.x += p.vx;
-    if (p.x < 0) p.x = 0;
-    if (p.x + p.w > WORLD_W) p.x = WORLD_W - p.w;
+    // ---- horizontal movement with acceleration + air control ----
+    let dir = 0;
+    if (keys['ArrowLeft']) dir -= 1;
+    if (keys['ArrowRight']) dir += 1;
+    if (dir !== 0) p.face = dir;
+    const accel = p.onGround ? 1.5 : 0.85;      // air control keeps momentum but stays steerable
+    const friction = p.onGround ? 0.72 : 0.94;
+    if (dir !== 0) {
+      p.vx += dir * accel * dt;
+      const max = SPEED;
+      if (p.vx > max) p.vx = max;
+      if (p.vx < -max) p.vx = -max;
+    } else {
+      p.vx *= Math.pow(friction, dt);
+      if (Math.abs(p.vx) < 0.05) p.vx = 0;
+    }
+    p.x += p.vx * dt;
+    if (p.x < 0) { p.x = 0; p.vx = 0; }
+    if (p.x + p.w > WORLD_W) { p.x = WORLD_W - p.w; p.vx = 0; }
 
-    if (p.invuln > 0) p.invuln--;
-    if (p.hitFx > 0) p.hitFx--;
+    if (p.invuln > 0) p.invuln -= dt;
+    if (p.hitFx > 0) p.hitFx -= dt;
     if (Math.abs(p.scale - p.targetScale) > 0.002) {
       const bottom = p.y + p.h;
-      p.scale += (p.targetScale - p.scale) * 0.18;
+      p.scale += (p.targetScale - p.scale) * 0.18 * dt;
       p.w = HERO_W * p.scale;
       p.h = HERO_H * p.scale;
       p.y = bottom - p.h;
     }
 
-    // vertical
+    // ---- jump: coyote time + input buffer + variable height ----
+    if (p.coyote > 0) p.coyote -= dt;
+    if (p.buffer > 0) p.buffer -= dt;
+    if (p.buffer > 0 && p.coyote > 0) {
+      p.vy = JUMP_V;
+      p.onGround = false;
+      p.coyote = 0;
+      p.buffer = 0;
+      p.holding = true;
+      if (dir !== 0) p.vx = dir * SPEED;   // small horizontal boost off the ledge
+      jumpSound();
+    }
+
+    // ---- vertical ----
     const prevBottom = p.y + p.h;
-    p.vy += GRAVITY;
+    const rising = p.vy < 0;
+    const grav = rising && p.holding ? GRAVITY * 0.62 : (rising ? GRAVITY : GRAVITY * 1.15);
+    p.vy += grav * dt;
     if (p.vy > 18) p.vy = 18;
-    p.y += p.vy;
+    p.y += p.vy * dt;
+    const wasOnGround = p.onGround;
     p.onGround = false;
 
     if (p.y < 0) { p.y = 0; p.vy = 0; }
@@ -390,13 +510,20 @@
 
     if (p.y + p.h >= GROUND_Y) { p.y = GROUND_Y - p.h; p.vy = 0; p.onGround = true; }
 
-    // camera follows the player (window into the world)
-    s.camX = Math.max(0, Math.min(WORLD_W - W, p.x + p.w / 2 - W / 2));
+    if (p.onGround) { p.coyote = 8; p.holding = false; }
+    else if (wasOnGround) p.coyote = Math.max(p.coyote, 8);
 
-    // enemies
+    // ---- smooth camera (eased follow with a small dead zone) ----
+    const target = Math.max(0, Math.min(WORLD_W - W, p.x + p.w / 2 + p.vx * 12 - W / 2));
+    const lerp = 1 - Math.pow(1 - 0.11, dt);
+    s.camX += (target - s.camX) * lerp;
+    if (Math.abs(target - s.camX) < 0.3) s.camX = target;
+
+    // ---- enemies ----
     for (const e of s.enemies) {
-      e.x += e.vx;
-      if (e.x - e.r < e.min || e.x + e.r > e.max) e.vx *= -1;
+      e.x += e.vx * dt;
+      if (e.x - e.r < e.min) { e.x = e.min + e.r; e.vx = Math.abs(e.vx); }
+      if (e.x + e.r > e.max) { e.x = e.max - e.r; e.vx = -Math.abs(e.vx); }
 
       const cx = Math.max(p.x, Math.min(e.x, p.x + p.w));
       const cy = Math.max(p.y, Math.min(e.y, p.y + p.h));
@@ -412,8 +539,9 @@
           e.x = e.min + e.r;
           e.vx = Math.abs(e.vx);
         } else {
-          s.over = true; loseSound();
+          s.over = true; stopMusic(); loseSound();
           loseTimeEl.textContent = 'Time: ' + fmtTime(s.elapsed);
+          loseBestEl.textContent = bestText();
           loseEl.classList.add('show');
         }
         break;
@@ -423,7 +551,7 @@
     // coins
     for (const c of s.coins) {
       if (c.got) continue;
-      c.t += 0.08;
+      c.t += 0.08 * dt;
       const ccx = Math.max(p.x, Math.min(c.x, p.x + p.w));
       const ccy = Math.max(p.y, Math.min(c.y, p.y + p.h));
       if ((ccx - c.x) ** 2 + (ccy - c.y) ** 2 < (c.r + 2) ** 2) {
@@ -434,12 +562,15 @@
     // flag (right end of the last screen)
     const f = s.flag;
     if (p.x + p.w > f.x - 8 && p.x < f.x + 40 && p.y + p.h > f.y && p.y < f.y + f.h) {
-      s.won = true; winSound();
+      s.won = true; stopMusic(); winSound();
+      const improved = saveBest(s.elapsed);
       winTimeEl.textContent = 'Time: ' + fmtTime(s.elapsed);
       winScoreEl.textContent = 'Score: ' + s.score + ' / ' + s.coins.length;
+      winBestEl.textContent = (improved ? '🏆 New best time! ' : '') + bestText();
       winEl.classList.add('show');
     }
   }
+
 
   function burst(x, y) {
     for (let i = 0; i < 16; i++) {
@@ -468,7 +599,8 @@
 
   function draw() {
     const s = state;
-    const cam = s.camX;
+    const cam = Math.round(s.camX * 2) / 2;
+
 
     // sky
     const sky = ctx.createLinearGradient(0, 0, 0, H);
@@ -695,19 +827,22 @@
     ctx.fillText('⏱ ' + fmtTime(s.elapsed), W - 28, 35);
     ctx.textAlign = 'left';
 
-    // HUD — screen indicator
-    const screenNo = Math.min(SCREENS, Math.floor(p.x / W) + 1);
-    ctx.fillStyle = 'rgba(0,0,0,.28)';
-    ctx.beginPath(); ctx.roundRect(W - 132, 58, 116, 28, 10); ctx.fill();
-    ctx.fillStyle = 'rgba(255,255,255,.9)';
-    ctx.font = 'bold 14px system-ui, sans-serif';
-    ctx.textAlign = 'right';
-    ctx.fillText('Area ' + screenNo + ' / ' + SCREENS, W - 28, 72);
-    ctx.textAlign = 'left';
+    if (paused) {
+      ctx.fillStyle = 'rgba(10,16,24,.45)';
+      ctx.fillRect(0, 0, W, H);
+      ctx.fillStyle = '#fff';
+      ctx.font = 'bold 42px system-ui, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('Paused', W / 2, H / 2);
+      ctx.textAlign = 'left';
+    }
   }
 
-  function loop() {
-    update();
+  let lastT = 0;
+  function loop(t) {
+    const dt = lastT ? Math.min(2.2, (t - lastT) / 16.6667) : 1;
+    lastT = t;
+    if (!paused) update(dt);
     draw();
     raf = requestAnimationFrame(loop);
   }
@@ -715,6 +850,8 @@
   function start() {
     if (raf) cancelAnimationFrame(raf);
     keys = {};
+    lastT = 0;
+    setPaused(false);
     loseEl.classList.remove('show');
     winEl.classList.remove('show');
     clearTimeout(warnTimer);
@@ -724,9 +861,35 @@
     raf = requestAnimationFrame(loop);
   }
 
+  /* ---------- pause / sound controls ---------- */
+  function setPaused(v) {
+    paused = v;
+    pauseBtn.textContent = v ? '▶' : '❚❚';
+    pauseBtn.title = v ? 'Resume' : 'Pause';
+    if (state && !v) state.startTime = performance.now() - state.elapsed;
+    if (v) stopMusic(); else if (soundOn && state && !state.over && !state.won) startMusic();
+  }
+  pauseBtn.addEventListener('click', () => { if (state && !state.over && !state.won) setPaused(!paused); pauseBtn.blur(); });
+  soundBtn.addEventListener('click', () => {
+    soundOn = !soundOn;
+    localStorage.setItem('rsa_sound', soundOn ? '1' : '0');
+    soundBtn.textContent = soundOn ? '🔊' : '🔇';
+    soundBtn.classList.toggle('off', !soundOn);
+    if (soundOn && !paused) startMusic(); else stopMusic();
+    soundBtn.blur();
+  });
+  soundBtn.textContent = soundOn ? '🔊' : '🔇';
+  soundBtn.classList.toggle('off', !soundOn);
+
+  window.addEventListener('keydown', e => {
+    if (e.key === 'p' || e.key === 'P') { if (state && !state.over && !state.won) setPaused(!paused); }
+    if (e.key === 'm' || e.key === 'M') soundBtn.click();
+  });
+
   document.querySelectorAll('[data-restart]').forEach(b => b.addEventListener('click', () => { start(); b.blur(); }));
 
   start();
+
 })();
 </script>
 </body>
