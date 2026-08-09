@@ -547,8 +547,8 @@
       p.buffer = 0;
       p.holding = true;
       // horizontal launch boost so jumps carry across gaps
-      if (dir !== 0) p.vx = dir * Math.max(AIR_SPEED * 0.9, Math.abs(p.vx) * 1.15) * (dir > 0 ? 1 : 1);
-      else if (Math.abs(p.vx) > 0.4) p.vx *= 1.12;
+      if (dir !== 0) p.vx = dir * AIR_SPEED;
+      else if (Math.abs(p.vx) > 0.4) p.vx = Math.sign(p.vx) * Math.min(AIR_SPEED, Math.abs(p.vx) * 1.15);
       jumpSound();
     }
 
