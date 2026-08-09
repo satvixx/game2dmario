@@ -584,12 +584,20 @@
     s.camX += (target - s.camX) * lerp;
     if (Math.abs(target - s.camX) < 0.3) s.camX = target;
 
-    // ---- enemies ----
+    // ---- enemies (only the one in the player's current area is live) ----
+    const playerScreen = Math.max(0, Math.min(SCREENS - 1, Math.floor((p.x + p.w / 2) / W)));
     for (const e of s.enemies) {
+      const wantAlpha = e.screen === playerScreen ? 1 : 0;
+      const fade = 1 - Math.pow(1 - 0.07, dt);
+      e.alpha += (wantAlpha - e.alpha) * fade;
+      if (e.alpha < 0.01) e.alpha = 0;
+      if (e.alpha > 0.99) e.alpha = 1;
+
       e.x += e.vx * dt;
       if (e.x - e.r < e.min) { e.x = e.min + e.r; e.vx = Math.abs(e.vx); }
       if (e.x + e.r > e.max) { e.x = e.max - e.r; e.vx = -Math.abs(e.vx); }
 
+      if (e.alpha < 0.75) continue;   // fading enemies can't hurt the player
       const cx = Math.max(p.x, Math.min(e.x, p.x + p.w));
       const cy = Math.max(p.y, Math.min(e.y, p.y + p.h));
       if (p.invuln <= 0 && (cx - e.x) ** 2 + (cy - e.y) ** 2 < e.r * e.r) {
