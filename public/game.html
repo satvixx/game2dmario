@@ -139,11 +139,18 @@
   const warnEl = document.getElementById('warn');
   const winScoreEl = document.getElementById('winScore');
   const winTimeEl = document.getElementById('winTime');
+  const winBestEl = document.getElementById('winBest');
   const loseTimeEl = document.querySelector('#lose .loseTime');
+  const loseBestEl = document.querySelector('#lose .loseBest');
+  const pauseBtn = document.getElementById('pauseBtn');
+  const soundBtn = document.getElementById('soundBtn');
 
   let canvas, ctx, raf = null;
   let keys = {};
   let state;
+  let paused = false;
+  let soundOn = localStorage.getItem('rsa_sound') !== '0';
+
 
   const rnd = (a, b) => a + Math.random() * (b - a);
   const pick = arr => arr[Math.floor(Math.random() * arr.length)];
