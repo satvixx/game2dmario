@@ -279,6 +279,7 @@
       player: {
         x: 60, y: GROUND_Y - HERO_H, w: HERO_W, h: HERO_H,
         vx: 0, vy: 0, onGround: true, face: 1,
+        coyote: 8, buffer: 0, holding: false,
         scale: 1, targetScale: 1, invuln: 0, hitFx: 0
       },
       platforms,
@@ -296,6 +297,7 @@
       won: false
     };
   }
+
 
   let warnTimer = null;
   function showWarning() {
