@@ -152,17 +152,27 @@
     return Math.floor(t / 60) + ':' + String(t % 60).padStart(2, '0');
   }
 
+  /* ---------- best time ---------- */
+  function bestMs() { const v = parseFloat(localStorage.getItem('rsa_best') || ''); return isFinite(v) ? v : null; }
+  function saveBest(ms) {
+    const b = bestMs();
+    if (b === null || ms < b) { localStorage.setItem('rsa_best', String(Math.round(ms))); return true; }
+    return false;
+  }
+  function bestText() { const b = bestMs(); return b === null ? 'Best time: —' : 'Best time: ' + fmtTime(b); }
+
   /* ---------- audio (WebAudio, no files) ---------- */
-  let actx = null;
+  let actx = null, master = null;
   function audio() {
     if (!actx) {
       const AC = window.AudioContext || window.webkitAudioContext;
-      if (AC) actx = new AC();
+      if (AC) { actx = new AC(); master = actx.createGain(); master.gain.value = 1; master.connect(actx.destination); }
     }
     if (actx && actx.state === 'suspended') actx.resume();
     return actx;
   }
   function tone(freq, dur, type, gain, slideTo) {
+    if (!soundOn) return;
     const a = audio(); if (!a) return;
     const o = a.createOscillator(), g = a.createGain();
     o.type = type || 'sine';
@@ -171,7 +181,7 @@
     g.gain.setValueAtTime(0.0001, a.currentTime);
     g.gain.exponentialRampToValueAtTime(gain, a.currentTime + 0.012);
     g.gain.exponentialRampToValueAtTime(0.0001, a.currentTime + dur);
-    o.connect(g); g.connect(a.destination);
+    o.connect(g); g.connect(master);
     o.start(); o.stop(a.currentTime + dur + 0.02);
   }
   const jumpSound = () => { tone(300, 0.16, 'square', 0.05, 720); setTimeout(() => tone(520, 0.14, 'sine', 0.05, 900), 40); };
@@ -179,6 +189,43 @@
   const coinSound = () => { tone(880, 0.09, 'triangle', 0.10); setTimeout(() => tone(1320, 0.12, 'triangle', 0.09), 70); };
   const winSound  = () => [0,120,240,420].forEach((d,i) => setTimeout(() => tone([523,659,784,1047][i], 0.25, 'triangle', 0.1), d));
   const loseSound = () => tone(320, 0.5, 'sawtooth', 0.08, 90);
+
+  /* ---------- background music (cheerful chiptune loop) ---------- */
+  const MELODY = [
+    659,784,880,784, 659,587,523,587, 659,784,880,988, 880,784,659,587,
+    523,659,784,659, 587,698,880,698, 784,988,1047,988, 880,784,659,523
+  ];
+  const BASS = [131,131,165,165, 196,196,165,165, 131,131,175,175, 196,196,147,147];
+  let musicTimer = null, step = 0;
+  function musicNote(freq, dur, type, gain) {
+    const a = audio(); if (!a || !master) return;
+    const o = a.createOscillator(), g = a.createGain(), t = a.currentTime;
+    o.type = type; o.frequency.setValueAtTime(freq, t);
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(gain, t + 0.02);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.connect(g); g.connect(master);
+    o.start(t); o.stop(t + dur + 0.02);
+  }
+  function startMusic() {
+    if (!soundOn || musicTimer) return;
+    if (!audio()) return;
+    const beat = 190;
+    musicTimer = setInterval(() => {
+      musicNote(MELODY[step % MELODY.length], 0.16, 'square', 0.035);
+      if (step % 2 === 0) musicNote(BASS[Math.floor(step / 2) % BASS.length], 0.3, 'triangle', 0.055);
+      if (step % 4 === 2) musicNote(1568, 0.04, 'square', 0.012);
+      step++;
+    }, beat);
+  }
+  function stopMusic() { if (musicTimer) { clearInterval(musicTimer); musicTimer = null; } }
+  // browsers require a gesture before audio starts
+  ['keydown', 'pointerdown'].forEach(ev => window.addEventListener(ev, function once() {
+    audio();
+    if (soundOn && !paused && state && !state.over && !state.won) startMusic();
+    window.removeEventListener(ev, once);
+  }));
+
 
   /* ---------- level generation ---------- */
   // Platforms form one reachable chain across all 7 screens:
