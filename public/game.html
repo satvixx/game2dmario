@@ -835,6 +835,7 @@
       ctx.fillStyle = '#332200';
       const look = e.vx > 0 ? 1.6 : -1.6;
       ctx.beginPath(); ctx.arc(ex - 6 + look, e.y - 4, 1.8, 0, Math.PI * 2); ctx.arc(ex + 6 + look, e.y - 4, 1.8, 0, Math.PI * 2); ctx.fill();
+      ctx.restore();
     });
 
     // player (sprite)
