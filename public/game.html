@@ -229,35 +229,83 @@
   const winSound  = () => [0,120,240,420].forEach((d,i) => setTimeout(() => tone([523,659,784,1047][i], 0.25, 'triangle', 0.1), d));
   const loseSound = () => tone(320, 0.5, 'sawtooth', 0.08, 90);
 
-  /* ---------- background music (cheerful chiptune loop) ---------- */
-  const MELODY = [
-    659,784,880,784, 659,587,523,587, 659,784,880,988, 880,784,659,587,
-    523,659,784,659, 587,698,880,698, 784,988,1047,988, 880,784,659,523
+  /* ---------- background music (upbeat, mellow synth-pop loop) ---------- */
+  // 8-bar chord progression (Am - F - C - G style), warm pad + soft arp + light drums
+  const CHORDS = [
+    [220.00, 261.63, 329.63],   // Am
+    [174.61, 220.00, 261.63],   // F
+    [261.63, 329.63, 392.00],   // C
+    [196.00, 246.94, 293.66]    // G
   ];
-  const BASS = [131,131,165,165, 196,196,165,165, 131,131,175,175, 196,196,147,147];
-  let musicTimer = null, step = 0;
-  function musicNote(freq, dur, type, gain) {
-    const a = audio(); if (!a || !master) return;
-    const o = a.createOscillator(), g = a.createGain(), t = a.currentTime;
+  const ARP_PATTERN = [0, 1, 2, 1, 2, 1, 0, 2];
+  let musicTimer = null, step = 0, musicBus = null;
+  function musicGain() {
+    const a = audio(); if (!a) return null;
+    if (!musicBus) {
+      musicBus = a.createGain();
+      const lp = a.createBiquadFilter();
+      lp.type = 'lowpass'; lp.frequency.value = 2400;
+      musicBus.gain.value = 0.55;
+      musicBus.connect(lp); lp.connect(master);
+    }
+    return musicBus;
+  }
+  function musicNote(freq, dur, type, gain, when) {
+    const a = audio(), bus = musicGain(); if (!a || !bus) return;
+    const o = a.createOscillator(), g = a.createGain(), t = a.currentTime + (when || 0);
     o.type = type; o.frequency.setValueAtTime(freq, t);
     g.gain.setValueAtTime(0.0001, t);
-    g.gain.exponentialRampToValueAtTime(gain, t + 0.02);
+    g.gain.exponentialRampToValueAtTime(gain, t + Math.min(0.08, dur * 0.35));
     g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-    o.connect(g); g.connect(master);
-    o.start(t); o.stop(t + dur + 0.02);
+    o.connect(g); g.connect(bus);
+    o.start(t); o.stop(t + dur + 0.03);
+  }
+  function drum(kind, when) {
+    const a = audio(), bus = musicGain(); if (!a || !bus) return;
+    const t = a.currentTime + (when || 0);
+    if (kind === 'kick') {
+      const o = a.createOscillator(), g = a.createGain();
+      o.type = 'sine';
+      o.frequency.setValueAtTime(150, t);
+      o.frequency.exponentialRampToValueAtTime(48, t + 0.13);
+      g.gain.setValueAtTime(0.16, t);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + 0.16);
+      o.connect(g); g.connect(bus); o.start(t); o.stop(t + 0.2);
+    } else {
+      const len = Math.floor(a.sampleRate * 0.05);
+      const buf = a.createBuffer(1, len, a.sampleRate);
+      const d = buf.getChannelData(0);
+      for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / len);
+      const src = a.createBufferSource(); src.buffer = buf;
+      const hp = a.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 6000;
+      const g = a.createGain(); g.gain.value = kind === 'snare' ? 0.05 : 0.025;
+      src.connect(hp); hp.connect(g); g.connect(bus); src.start(t);
+    }
   }
   function startMusic() {
     if (!soundOn || musicTimer) return;
     if (!audio()) return;
-    const beat = 190;
+    const beat = 250;               // eighth-note step, ~120 BPM feel
     musicTimer = setInterval(() => {
-      musicNote(MELODY[step % MELODY.length], 0.16, 'square', 0.035);
-      if (step % 2 === 0) musicNote(BASS[Math.floor(step / 2) % BASS.length], 0.3, 'triangle', 0.055);
-      if (step % 4 === 2) musicNote(1568, 0.04, 'square', 0.012);
+      const bar = Math.floor(step / 8) % 4;
+      const chord = CHORDS[bar];
+      // warm pad on each bar
+      if (step % 8 === 0) {
+        chord.forEach((f, i) => musicNote(f / 2, 1.9, 'sine', 0.05 - i * 0.008));
+        chord.forEach((f, i) => musicNote(f, 1.9, 'triangle', 0.028 - i * 0.005));
+      }
+      // gentle arpeggio sparkle
+      const an = chord[ARP_PATTERN[step % ARP_PATTERN.length]] * 2;
+      musicNote(an, 0.22, 'triangle', 0.030);
+      // light groove
+      if (step % 4 === 0) drum('kick');
+      if (step % 8 === 4) drum('snare');
+      if (step % 2 === 1) drum('hat');
       step++;
     }, beat);
   }
   function stopMusic() { if (musicTimer) { clearInterval(musicTimer); musicTimer = null; } }
+
   // browsers require a gesture before audio starts
   ['keydown', 'pointerdown'].forEach(ev => window.addEventListener(ev, function once() {
     audio();
