@@ -546,7 +546,9 @@
       p.coyote = 0;
       p.buffer = 0;
       p.holding = true;
-      if (dir !== 0) p.vx = dir * SPEED;   // small horizontal boost off the ledge
+      // horizontal launch boost so jumps carry across gaps
+      if (dir !== 0) p.vx = dir * Math.max(AIR_SPEED * 0.9, Math.abs(p.vx) * 1.15) * (dir > 0 ? 1 : 1);
+      else if (Math.abs(p.vx) > 0.4) p.vx *= 1.12;
       jumpSound();
     }
 
