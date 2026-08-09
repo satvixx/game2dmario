@@ -512,11 +512,11 @@
     if (keys['ArrowLeft']) dir -= 1;
     if (keys['ArrowRight']) dir += 1;
     if (dir !== 0) p.face = dir;
-    const accel = p.onGround ? 1.5 : 0.85;      // air control keeps momentum but stays steerable
-    const friction = p.onGround ? 0.72 : 0.94;
+    const accel = p.onGround ? 1.7 : 1.15;      // strong air control for platform-to-platform hops
+    const friction = p.onGround ? 0.72 : 0.985; // keep air momentum
     if (dir !== 0) {
       p.vx += dir * accel * dt;
-      const max = SPEED;
+      const max = p.onGround ? SPEED : AIR_SPEED;
       if (p.vx > max) p.vx = max;
       if (p.vx < -max) p.vx = -max;
     } else {
