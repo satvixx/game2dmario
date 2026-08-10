@@ -582,7 +582,7 @@
     if (e.repeat) return;
     keys[e.key] = true;
     if (isJumpKey(e.key) && state && !state.over && !state.won) {
-      state.player.buffer = 9;      // buffered jump: fires as soon as landing/coyote allows
+      state.player.buffer = JUMP_BUFFER;   // buffered jump: fires as soon as landing/coyote allows
       state.player.holding = true;
     }
   });
