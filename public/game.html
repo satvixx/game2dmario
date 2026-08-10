@@ -685,8 +685,9 @@
 
     if (p.y + p.h >= GROUND_Y) { p.y = GROUND_Y - p.h; p.vy = 0; p.onGround = true; }
 
-    if (p.onGround) { p.coyote = 8; p.holding = false; }
-    else if (wasOnGround) p.coyote = Math.max(p.coyote, 8);
+    if (p.onGround) { p.coyote = COYOTE; p.holding = false; }
+    else if (wasOnGround) p.coyote = Math.max(p.coyote, COYOTE);
+
 
     // ---- smooth camera (eased follow with a small dead zone) ----
     const target = Math.max(0, Math.min(WORLD_W - W, p.x + p.w / 2 + p.vx * 12 - W / 2));
