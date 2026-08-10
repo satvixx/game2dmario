@@ -156,12 +156,15 @@
   const GROUND_Y = H - GROUND_H;
   const GRAVITY = 0.58;
   const JUMP_V = -15.8;
-  const JUMP_CUT = 0.78;
+  const JUMP_CUT = 0.45;                  // reverted: short taps give short hops again
   const SPEED = 5.2;
   const AIR_SPEED = 5.8;                  // slightly faster in the air for longer hops
 
   const HERO_W = 48, HERO_H = 64;
-  const SHRINK = 0.72;
+  const BASE_SCALE = 0.88;                // normal size at the start of a run
+  const BIG_SCALE = 1.22;                 // powered-up size after grabbing a 🌟
+  const JUMP_BUFFER = 12;                 // frames an early jump press is remembered
+  const COYOTE = 10;                      // frames of grace after leaving a ledge
 
   const heroImg = new Image();
   heroImg.src = '/hero.png';
@@ -229,6 +232,9 @@
   const coinSound = () => { tone(880, 0.09, 'triangle', 0.10); setTimeout(() => tone(1320, 0.12, 'triangle', 0.09), 70); };
   const winSound  = () => [0,120,240,420].forEach((d,i) => setTimeout(() => tone([523,659,784,1047][i], 0.25, 'triangle', 0.1), d));
   const loseSound = () => tone(320, 0.5, 'sawtooth', 0.08, 90);
+  const starSound = () => [0,90,180,300].forEach((d,i) => setTimeout(() => tone([659,880,1047,1319][i], 0.18, 'triangle', 0.09), d));
+  const treasureSound = () => { tone(523, 0.12, 'triangle', 0.10, 784); setTimeout(() => tone(1047, 0.2, 'triangle', 0.09, 1568), 90); };
+  const thudSound = () => { tone(120, 0.22, 'sawtooth', 0.10, 45); setTimeout(() => tone(70, 0.18, 'sine', 0.09, 40), 30); };
 
   /* ---------- background music (upbeat, mellow synth-pop loop) ---------- */
   // 8-bar chord progression (Am - F - C - G style), warm pad + soft arp + light drums
@@ -414,6 +420,46 @@
 
   const SPIKE_INTERVAL = 120;   // ~2 seconds at 60fps
 
+  // pick n random spots across the world, either hovering in the air above a
+  // platform or resting on the ground — used for fixed spikes, treasure and stars
+  function scatterSpots(n, platforms, minScreen) {
+    const spots = [];
+    const screens = [];
+    for (let s = (minScreen || 0); s < SCREENS; s++) screens.push(s);
+    for (let i = screens.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [screens[i], screens[j]] = [screens[j], screens[i]]; }
+    for (let i = 0; i < n; i++) {
+      const s = screens[i % screens.length];
+      const onScreen = platforms.filter(p => p.x >= s * W - 40 && p.x < (s + 1) * W);
+      if (onScreen.length && Math.random() < 0.6) {
+        const p = pick(onScreen);
+        spots.push({ x: p.x + 20 + Math.random() * Math.max(20, p.w - 40), y: p.y - rnd(26, 66) });
+      } else {
+        spots.push({ x: s * W + (s === 0 ? 320 : 90) + Math.random() * (W - (s === 0 ? 420 : 200)), y: GROUND_Y - rnd(22, 80) });
+      }
+    }
+    return spots;
+  }
+
+  // 1-3 stationary spiked balls parked in the air or on the ground
+  function makeFixedSpikes(platforms) {
+    const n = 1 + Math.floor(Math.random() * 3);
+    return scatterSpots(n, platforms, 1).map(sp => ({ x: sp.x, y: sp.y, r: 16, spin: Math.random() * 6 }));
+  }
+
+  // 1-2 treasure chests worth +50 score each
+  function makeTreasures(platforms) {
+    const n = 1 + Math.floor(Math.random() * 2);
+    return scatterSpots(n, platforms, 1).map(sp => ({ x: sp.x, y: sp.y, got: false, t: Math.random() * 6 }));
+  }
+
+  // 1-3 stars: each grants one extra life and makes the hero big
+  function makeStars(platforms) {
+    const n = 1 + Math.floor(Math.random() * 3);
+    return scatterSpots(n, platforms, 1).map(sp => ({ x: sp.x, y: sp.y, got: false, t: Math.random() * 6 }));
+  }
+
+
+
 
   function makeDecor() {
     const grass = [];
@@ -448,20 +494,26 @@
     const platforms = makePlatforms();
     return {
       player: {
-        x: 60, y: GROUND_Y - HERO_H, w: HERO_W, h: HERO_H,
+        x: 60, y: GROUND_Y - HERO_H * BASE_SCALE, w: HERO_W * BASE_SCALE, h: HERO_H * BASE_SCALE,
         vx: 0, vy: 0, onGround: true, face: 1,
-        coyote: 8, buffer: 0, holding: false,
-        scale: 1, targetScale: 1, invuln: 0, hitFx: 0
+        coyote: COYOTE, buffer: 0, holding: false,
+        scale: BASE_SCALE, targetScale: BASE_SCALE, invuln: 0, hitFx: 0, growFx: 0
       },
       platforms,
       coins: randomCoins(platforms),
       enemies: makeEnemies(),
       spikers: makeSpikers(),
+      fixedSpikes: makeFixedSpikes(platforms),
+      treasures: makeTreasures(platforms),
+      stars: makeStars(platforms),
       flag: { x: WORLD_W - 70, y: GROUND_Y - 96, w: 6, h: 96 },
       sparkles: [],
+      floats: [],
+      shake: 0,
+      collected: [],        // emoji badges shown top-left
+      lives: 0,             // extra lives from 🌟 (0-2)
       decor: makeDecor(),
       camX: 0,
-      lives: 2,
       score: 0,
       startTime: performance.now(),
       elapsed: 0,
@@ -472,22 +524,31 @@
 
 
   let warnTimer = null;
-  function showWarning() {
+  function showWarning(text) {
+    warnEl.querySelector('span').textContent = text || 'Ouch! One extra life used — be careful!';
     warnEl.classList.add('show');
     clearTimeout(warnTimer);
     warnTimer = setTimeout(() => warnEl.classList.remove('show'), 2200);
   }
 
-  // shared damage handling (patrolling enemy or falling spiked ball)
+  function floatText(s, x, y, text, color) {
+    s.floats.push({ x, y, text, color: color || '#ffd633', life: 70, max: 70 });
+  }
+
+  // shared damage handling (patrolling enemy, falling ball or fixed spike)
   function takeHit(s, p, enemy) {
-    s.lives--;
     if (s.lives > 0) {
-      p.targetScale = SHRINK;
-      p.invuln = 120;
+      s.lives--;
+      p.invuln = 130;
       p.hitFx = 40;
       hurtSound();
-      showWarning();
       hitBurst(p.x + p.w / 2, p.y + p.h / 2);
+      if (s.lives === 0) {
+        p.targetScale = BASE_SCALE;
+        showWarning('One life used — back to normal size!');
+      } else {
+        showWarning('One star lost — you still have 1 life!');
+      }
       if (enemy) { enemy.x = enemy.min + enemy.r; enemy.vx = Math.abs(enemy.vx); }
     } else {
       s.over = true; stopMusic(); loseSound();
@@ -496,6 +557,7 @@
       loseEl.classList.add('show');
     }
   }
+
 
 
 
@@ -520,7 +582,7 @@
     if (e.repeat) return;
     keys[e.key] = true;
     if (isJumpKey(e.key) && state && !state.over && !state.won) {
-      state.player.buffer = 9;      // buffered jump: fires as soon as landing/coyote allows
+      state.player.buffer = JUMP_BUFFER;   // buffered jump: fires as soon as landing/coyote allows
       state.player.holding = true;
     }
   });
@@ -544,8 +606,12 @@
     });
     s.sparkles.forEach(sp => { sp.x += sp.vx * dt; sp.y += sp.vy * dt; sp.vy += 0.08 * dt; sp.life -= dt; });
     s.sparkles = s.sparkles.filter(sp => sp.life > 0);
+    s.floats.forEach(f => { f.y -= 0.7 * dt; f.life -= dt; });
+    s.floats = s.floats.filter(f => f.life > 0);
+    if (s.shake > 0) s.shake -= dt;
 
     if (s.over || s.won) return;
+
 
     s.elapsed = performance.now() - s.startTime;
 
@@ -571,6 +637,8 @@
 
     if (p.invuln > 0) p.invuln -= dt;
     if (p.hitFx > 0) p.hitFx -= dt;
+    if (p.growFx > 0) p.growFx -= dt;
+
     if (Math.abs(p.scale - p.targetScale) > 0.002) {
       const bottom = p.y + p.h;
       p.scale += (p.targetScale - p.scale) * 0.18 * dt;
@@ -617,8 +685,9 @@
 
     if (p.y + p.h >= GROUND_Y) { p.y = GROUND_Y - p.h; p.vy = 0; p.onGround = true; }
 
-    if (p.onGround) { p.coyote = 8; p.holding = false; }
-    else if (wasOnGround) p.coyote = Math.max(p.coyote, 8);
+    if (p.onGround) { p.coyote = COYOTE; p.holding = false; }
+    else if (wasOnGround) p.coyote = Math.max(p.coyote, COYOTE);
+
 
     // ---- smooth camera (eased follow with a small dead zone) ----
     const target = Math.max(0, Math.min(WORLD_W - W, p.x + p.w / 2 + p.vx * 12 - W / 2));
@@ -656,10 +725,15 @@
         if (b.vy > 15) b.vy = 15;
         b.y += b.vy * dt;
         b.spin += 0.12 * dt;
-        if (b.y + b.r >= GROUND_Y) { sp.ball = null; sp.timer = SPIKE_INTERVAL; continue; }
+        if (b.y + b.r >= GROUND_Y) {
+          impactFx(b.x, GROUND_Y);
+          if (Math.abs(b.x - (p.x + p.w / 2)) < W * 0.6) { thudSound(); s.shake = 14; }
+          sp.ball = null; sp.timer = SPIKE_INTERVAL; continue;
+        }
         const bx = Math.max(p.x, Math.min(b.x, p.x + p.w));
         const by = Math.max(p.y, Math.min(b.y, p.y + p.h));
         if (p.invuln <= 0 && (bx - b.x) ** 2 + (by - b.y) ** 2 < b.r * b.r) {
+          impactFx(b.x, b.y); s.shake = 16;
           sp.ball = null; sp.timer = SPIKE_INTERVAL;
           takeHit(s, p, null);
           break;
@@ -670,6 +744,17 @@
       }
     }
 
+    // ---- fixed spiked balls ----
+    for (const fs of s.fixedSpikes) {
+      fs.spin += 0.02 * dt;
+      const fx2 = Math.max(p.x, Math.min(fs.x, p.x + p.w));
+      const fy2 = Math.max(p.y, Math.min(fs.y, p.y + p.h));
+      if (p.invuln <= 0 && (fx2 - fs.x) ** 2 + (fy2 - fs.y) ** 2 < fs.r * fs.r) {
+        s.shake = 14; impactFx(fs.x, fs.y);
+        takeHit(s, p, null);
+        break;
+      }
+    }
 
     // coins
     for (const c of s.coins) {
@@ -682,17 +767,45 @@
       }
     }
 
+    // treasure chests (+50)
+    for (const tr of s.treasures) {
+      if (tr.got) continue;
+      tr.t += 0.06 * dt;
+      if (p.x + p.w > tr.x - 18 && p.x < tr.x + 18 && p.y + p.h > tr.y - 18 && p.y < tr.y + 18) {
+        tr.got = true; s.score += 50;
+        treasureSound(); burst(tr.x, tr.y); burst(tr.x, tr.y - 10);
+        floatText(s, tr.x, tr.y - 20, '+50', '#ffd633');
+      }
+    }
+
+    // stars — grant an extra life and grow the hero
+    for (const st of s.stars) {
+      if (st.got) continue;
+      st.t += 0.06 * dt;
+      if (p.x + p.w > st.x - 18 && p.x < st.x + 18 && p.y + p.h > st.y - 18 && p.y < st.y + 18) {
+        st.got = true;
+        s.lives = Math.min(2, s.lives + 1);
+        p.targetScale = BIG_SCALE;
+        p.growFx = 45;
+        starSound(); starBurst(st.x, st.y);
+        floatText(s, st.x, st.y - 20, s.lives > 1 ? '2ND LIFE!' : 'EXTRA LIFE!', '#ffe066');
+      }
+    }
+
     // flag (right end of the last screen)
     const f = s.flag;
     if (p.x + p.w > f.x - 8 && p.x < f.x + 40 && p.y + p.h > f.y && p.y < f.y + f.h) {
       s.won = true; stopMusic(); winSound();
+      const bonus = s.lives * 50;           // unused 🌟 lives convert to 50 points each
+      if (bonus) s.score += bonus;
       const improved = saveBest(s.elapsed);
       winTimeEl.textContent = 'Time: ' + fmtTime(s.elapsed);
-      winScoreEl.textContent = 'Score: ' + s.score + ' / ' + s.coins.length;
+      winScoreEl.textContent = 'Score: ' + s.score + (bonus ? '  (includes 🌟 bonus +' + bonus + ')' : '');
       winBestEl.textContent = (improved ? '🏆 New best time! ' : '') + bestText();
       winEl.classList.add('show');
     }
   }
+
 
 
   function burst(x, y) {
@@ -717,12 +830,40 @@
     }
   }
 
+  function starBurst(x, y) {
+    for (let i = 0; i < 30; i++) {
+      const a = Math.random() * Math.PI * 2, sp = 1.4 + Math.random() * 3.2;
+      state.sparkles.push({
+        x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp - 1.6,
+        life: 34 + Math.random() * 24, max: 58,
+        c: ['#fff3b0', '#ffe066', '#ffffff', '#ffd633'][i % 4]
+      });
+    }
+  }
+
+  // dust + shard puff where a spiked ball lands
+  function impactFx(x, y) {
+    for (let i = 0; i < 22; i++) {
+      const a = -Math.PI * (0.15 + Math.random() * 0.7), sp = 1.4 + Math.random() * 3.6;
+      state.sparkles.push({
+        x, y, vx: Math.cos(a) * sp * 1.6, vy: Math.sin(a) * sp,
+        life: 22 + Math.random() * 20, max: 42,
+        c: ['#cfd8c5', '#8bc34a', '#3f7d2f'][i % 3]
+      });
+    }
+  }
+
+
   /* ---------- draw ---------- */
   const vis = (x, pad) => x > state.camX - pad && x < state.camX + W + pad;
 
   function draw() {
     const s = state;
-    const cam = Math.round(s.camX * 2) / 2;
+    const shakeAmt = s.shake > 0 ? s.shake / 4 : 0;
+    const camShake = shakeAmt ? (Math.random() - 0.5) * shakeAmt : 0;
+    const cam = Math.round((s.camX + camShake) * 2) / 2;
+
+
 
 
     // sky
@@ -888,31 +1029,68 @@
       ctx.restore();
     });
 
-    // falling spiked balls
+    // spiked balls (falling + fixed) share one look
+    const drawSpike = (sx, sy, r, spin) => {
+      ctx.save();
+      ctx.translate(sx, sy);
+      ctx.rotate(spin);
+      ctx.fillStyle = '#3f7d2f';
+      for (let i = 0; i < 10; i++) {
+        const a = (i / 10) * Math.PI * 2;
+        ctx.beginPath();
+        ctx.moveTo(Math.cos(a - 0.22) * r * 0.85, Math.sin(a - 0.22) * r * 0.85);
+        ctx.lineTo(Math.cos(a) * (r + 7), Math.sin(a) * (r + 7));
+        ctx.lineTo(Math.cos(a + 0.22) * r * 0.85, Math.sin(a + 0.22) * r * 0.85);
+        ctx.closePath();
+        ctx.fill();
+      }
+      const gg = ctx.createRadialGradient(-r * 0.3, -r * 0.3, 2, 0, 0, r);
+      gg.addColorStop(0, '#8bc34a'); gg.addColorStop(1, '#2f5d21');
+      ctx.fillStyle = gg;
+      ctx.beginPath(); ctx.arc(0, 0, r, 0, Math.PI * 2); ctx.fill();
+      ctx.restore();
+    };
+
     s.spikers.forEach(sp => {
       const b = sp.ball;
       if (!b) return;
       const bx = b.x - cam;
       if (bx < -60 || bx > W + 60) return;
+      drawSpike(bx, b.y, b.r, b.spin);
+    });
+
+    s.fixedSpikes.forEach(fs => {
+      const sx = fs.x - cam;
+      if (sx < -60 || sx > W + 60) return;
+      drawSpike(sx, fs.y, fs.r, fs.spin);
+    });
+
+    // treasure chests and stars
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    s.treasures.forEach(tr => {
+      if (tr.got) return;
+      const tx = tr.x - cam;
+      if (tx < -40 || tx > W + 40) return;
       ctx.save();
-      ctx.translate(bx, b.y);
-      ctx.rotate(b.spin);
-      ctx.fillStyle = '#3f7d2f';
-      for (let i = 0; i < 10; i++) {
-        const a = (i / 10) * Math.PI * 2;
-        ctx.beginPath();
-        ctx.moveTo(Math.cos(a - 0.22) * b.r * 0.85, Math.sin(a - 0.22) * b.r * 0.85);
-        ctx.lineTo(Math.cos(a) * (b.r + 7), Math.sin(a) * (b.r + 7));
-        ctx.lineTo(Math.cos(a + 0.22) * b.r * 0.85, Math.sin(a + 0.22) * b.r * 0.85);
-        ctx.closePath();
-        ctx.fill();
-      }
-      const g = ctx.createRadialGradient(-b.r * 0.3, -b.r * 0.3, 2, 0, 0, b.r);
-      g.addColorStop(0, '#8bc34a'); g.addColorStop(1, '#2f5d21');
-      ctx.fillStyle = g;
-      ctx.beginPath(); ctx.arc(0, 0, b.r, 0, Math.PI * 2); ctx.fill();
+      ctx.font = '30px system-ui, "Apple Color Emoji", "Segoe UI Emoji", sans-serif';
+      ctx.shadowColor = 'rgba(255,214,51,.85)'; ctx.shadowBlur = 14;
+      ctx.fillText('💰', tx, tr.y + Math.sin(tr.t) * 3);
       ctx.restore();
     });
+    s.stars.forEach(st => {
+      if (st.got) return;
+      const sx = st.x - cam;
+      if (sx < -40 || sx > W + 40) return;
+      ctx.save();
+      ctx.font = '30px system-ui, "Apple Color Emoji", "Segoe UI Emoji", sans-serif';
+      ctx.shadowColor = 'rgba(255,240,150,.9)'; ctx.shadowBlur = 16 + Math.sin(st.t * 2) * 6;
+      ctx.fillText('🌟', sx, st.y + Math.sin(st.t) * 4);
+      ctx.restore();
+    });
+    ctx.textAlign = 'left';
+
+
 
 
 
@@ -923,8 +1101,18 @@
     ctx.beginPath(); ctx.ellipse(pxs + p.w / 2, p.y + p.h + 3, p.w / 2, 4, 0, 0, Math.PI * 2); ctx.fill();
 
     ctx.save();
+    if (p.growFx > 0) {
+      ctx.save();
+      ctx.globalAlpha = Math.max(0, p.growFx / 45) * 0.55;
+      const rg = ctx.createRadialGradient(pxs + p.w / 2, p.y + p.h / 2, 4, pxs + p.w / 2, p.y + p.h / 2, p.w * 1.6);
+      rg.addColorStop(0, '#fff3b0'); rg.addColorStop(1, 'rgba(255,224,102,0)');
+      ctx.fillStyle = rg;
+      ctx.beginPath(); ctx.arc(pxs + p.w / 2, p.y + p.h / 2, p.w * 1.6, 0, Math.PI * 2); ctx.fill();
+      ctx.restore();
+    }
     if (p.invuln > 0 && Math.floor(p.invuln / 5) % 2 === 0) ctx.globalAlpha = 0.45;
-    const pop = p.hitFx > 0 ? 1 + Math.sin(p.hitFx / 40 * Math.PI) * 0.12 : 1;
+    const pop = p.hitFx > 0 ? 1 + Math.sin(p.hitFx / 40 * Math.PI) * 0.12
+      : (p.growFx > 0 ? 1 + Math.sin(p.growFx / 45 * Math.PI) * 0.16 : 1);
     const dw = p.w * pop, dh = p.h * pop;
     const dx = pxs + (p.w - dw) / 2, dy = p.y + (p.h - dh);
     ctx.imageSmoothingEnabled = false;
@@ -950,6 +1138,19 @@
       ctx.globalAlpha = 1;
     });
 
+    // floating "+50" style texts
+    ctx.save();
+    ctx.textAlign = 'center';
+    ctx.font = 'bold 24px system-ui, sans-serif';
+    s.floats.forEach(fl => {
+      ctx.globalAlpha = Math.max(0, Math.min(1, fl.life / (fl.max * 0.6)));
+      ctx.lineWidth = 4; ctx.strokeStyle = 'rgba(0,0,0,.55)';
+      ctx.strokeText(fl.text, fl.x - cam, fl.y);
+      ctx.fillStyle = fl.color;
+      ctx.fillText(fl.text, fl.x - cam, fl.y);
+    });
+    ctx.restore();
+
     // HUD — score
     ctx.fillStyle = 'rgba(0,0,0,.35)';
     ctx.beginPath(); ctx.roundRect(16, 16, 150, 42, 12); ctx.fill();
@@ -961,16 +1162,18 @@
     ctx.textAlign = 'left';
     ctx.fillText('Score: ' + s.score, 58, 38);
 
-    // HUD — lives
-    ctx.fillStyle = 'rgba(0,0,0,.35)';
-    ctx.beginPath(); ctx.roundRect(180, 16, 108, 42, 12); ctx.fill();
-    ctx.font = 'bold 18px system-ui, sans-serif';
-    ctx.fillStyle = '#fff';
-    ctx.fillText('Lives', 196, 38);
-    for (let i = 0; i < 2; i++) {
-      ctx.fillStyle = i < s.lives ? '#ff5e5e' : 'rgba(255,255,255,.25)';
-      ctx.beginPath(); ctx.arc(248 + i * 22, 37, 8, 0, Math.PI * 2); ctx.fill();
+    // HUD — collected badges (🌟 lives held, 💰 treasures found)
+    const badges = [];
+    for (let i = 0; i < s.lives; i++) badges.push('🌟');
+    for (let i = 0; i < s.treasures.filter(t => t.got).length; i++) badges.push('💰');
+    if (badges.length) {
+      const bw = 20 + badges.length * 34;
+      ctx.fillStyle = 'rgba(0,0,0,.35)';
+      ctx.beginPath(); ctx.roundRect(180, 16, bw, 42, 12); ctx.fill();
+      ctx.font = '24px system-ui, "Apple Color Emoji", "Segoe UI Emoji", sans-serif';
+      badges.forEach((b, i) => ctx.fillText(b, 194 + i * 34, 39));
     }
+
 
     // HUD — timer (top right)
     ctx.fillStyle = 'rgba(0,0,0,.35)';
