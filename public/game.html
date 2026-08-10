@@ -830,6 +830,30 @@
     }
   }
 
+  function starBurst(x, y) {
+    for (let i = 0; i < 30; i++) {
+      const a = Math.random() * Math.PI * 2, sp = 1.4 + Math.random() * 3.2;
+      state.sparkles.push({
+        x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp - 1.6,
+        life: 34 + Math.random() * 24, max: 58,
+        c: ['#fff3b0', '#ffe066', '#ffffff', '#ffd633'][i % 4]
+      });
+    }
+  }
+
+  // dust + shard puff where a spiked ball lands
+  function impactFx(x, y) {
+    for (let i = 0; i < 22; i++) {
+      const a = -Math.PI * (0.15 + Math.random() * 0.7), sp = 1.4 + Math.random() * 3.6;
+      state.sparkles.push({
+        x, y, vx: Math.cos(a) * sp * 1.6, vy: Math.sin(a) * sp,
+        life: 22 + Math.random() * 20, max: 42,
+        c: ['#cfd8c5', '#8bc34a', '#3f7d2f'][i % 3]
+      });
+    }
+  }
+
+
   /* ---------- draw ---------- */
   const vis = (x, pad) => x > state.camX - pad && x < state.camX + W + pad;
 
