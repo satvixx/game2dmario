@@ -156,7 +156,7 @@
   const GROUND_Y = H - GROUND_H;
   const GRAVITY = 0.58;
   const JUMP_V = -15.8;
-  const JUMP_CUT = 0.45;
+  const JUMP_CUT = 0.78;
   const SPEED = 5.2;
   const AIR_SPEED = 5.8;                  // slightly faster in the air for longer hops
 
@@ -320,7 +320,7 @@
   // vertical steps <= 90px, horizontal gaps <= 105px (comfortably inside jump range).
   function makePlatforms() {
     const platforms = [];
-    const LEVELS = [GROUND_Y - 95, GROUND_Y - 180, GROUND_Y - 262];
+    const LEVELS = [GROUND_Y - 86, GROUND_Y - 168, GROUND_Y - 248];
     let li = 0;
     let cursor = 150;
     for (let s = 0; s < SCREENS; s++) {
@@ -395,6 +395,25 @@
     return enemies;
   }
 
+  // Falling spiked balls: 3-4 screens get one dropper each. Every ~2s it drops
+  // from the top of that screen at a random x and vanishes when it hits the ground.
+  function makeSpikers() {
+    const all = [];
+    for (let s = 1; s < SCREENS; s++) all.push(s);           // never on the starting screen
+    // shuffle then take 3 or 4 screens
+    for (let i = all.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [all[i], all[j]] = [all[j], all[i]]; }
+    const chosen = all.slice(0, Math.random() < 0.5 ? 3 : 4);
+    return chosen.map(s => ({
+      screen: s,
+      minX: s * W + 70,
+      maxX: s * W + W - (s === SCREENS - 1 ? 180 : 70),
+      timer: rnd(20, 100),   // frames until next drop
+      ball: null
+    }));
+  }
+
+  const SPIKE_INTERVAL = 120;   // ~2 seconds at 60fps
+
 
   function makeDecor() {
     const grass = [];
@@ -437,6 +456,7 @@
       platforms,
       coins: randomCoins(platforms),
       enemies: makeEnemies(),
+      spikers: makeSpikers(),
       flag: { x: WORLD_W - 70, y: GROUND_Y - 96, w: 6, h: 96 },
       sparkles: [],
       decor: makeDecor(),
@@ -457,6 +477,27 @@
     clearTimeout(warnTimer);
     warnTimer = setTimeout(() => warnEl.classList.remove('show'), 2200);
   }
+
+  // shared damage handling (patrolling enemy or falling spiked ball)
+  function takeHit(s, p, enemy) {
+    s.lives--;
+    if (s.lives > 0) {
+      p.targetScale = SHRINK;
+      p.invuln = 120;
+      p.hitFx = 40;
+      hurtSound();
+      showWarning();
+      hitBurst(p.x + p.w / 2, p.y + p.h / 2);
+      if (enemy) { enemy.x = enemy.min + enemy.r; enemy.vx = Math.abs(enemy.vx); }
+    } else {
+      s.over = true; stopMusic(); loseSound();
+      loseTimeEl.textContent = 'Time: ' + fmtTime(s.elapsed);
+      loseBestEl.textContent = bestText();
+      loseEl.classList.add('show');
+    }
+  }
+
+
 
   /* ---------- canvas creation (fresh canvas each restart, fixed size) ---------- */
   function createCanvas() {
@@ -487,7 +528,8 @@
     keys[e.key] = false;
     if (isJumpKey(e.key) && state) {
       state.player.holding = false;
-      if (state.player.vy < 0) state.player.vy *= JUMP_CUT;
+      // never cut below the minimum hop that clears the lowest platform
+      if (state.player.vy < JUMP_V * JUMP_CUT) state.player.vy = JUMP_V * JUMP_CUT;
     }
   });
 
@@ -601,25 +643,33 @@
       const cx = Math.max(p.x, Math.min(e.x, p.x + p.w));
       const cy = Math.max(p.y, Math.min(e.y, p.y + p.h));
       if (p.invuln <= 0 && (cx - e.x) ** 2 + (cy - e.y) ** 2 < e.r * e.r) {
-        s.lives--;
-        if (s.lives > 0) {
-          p.targetScale = SHRINK;
-          p.invuln = 120;
-          p.hitFx = 40;
-          hurtSound();
-          showWarning();
-          hitBurst(p.x + p.w / 2, p.y + p.h / 2);
-          e.x = e.min + e.r;
-          e.vx = Math.abs(e.vx);
-        } else {
-          s.over = true; stopMusic(); loseSound();
-          loseTimeEl.textContent = 'Time: ' + fmtTime(s.elapsed);
-          loseBestEl.textContent = bestText();
-          loseEl.classList.add('show');
-        }
+        takeHit(s, p, e);
         break;
       }
     }
+
+    // ---- falling spiked balls ----
+    for (const sp of s.spikers) {
+      if (sp.ball) {
+        const b = sp.ball;
+        b.vy += GRAVITY * 0.85 * dt;
+        if (b.vy > 15) b.vy = 15;
+        b.y += b.vy * dt;
+        b.spin += 0.12 * dt;
+        if (b.y + b.r >= GROUND_Y) { sp.ball = null; sp.timer = SPIKE_INTERVAL; continue; }
+        const bx = Math.max(p.x, Math.min(b.x, p.x + p.w));
+        const by = Math.max(p.y, Math.min(b.y, p.y + p.h));
+        if (p.invuln <= 0 && (bx - b.x) ** 2 + (by - b.y) ** 2 < b.r * b.r) {
+          sp.ball = null; sp.timer = SPIKE_INTERVAL;
+          takeHit(s, p, null);
+          break;
+        }
+      } else {
+        sp.timer -= dt;
+        if (sp.timer <= 0) sp.ball = { x: rnd(sp.minX, sp.maxX), y: -20, vy: 1.5, r: 15, spin: 0 };
+      }
+    }
+
 
     // coins
     for (const c of s.coins) {
@@ -837,6 +887,34 @@
       ctx.beginPath(); ctx.arc(ex - 6 + look, e.y - 4, 1.8, 0, Math.PI * 2); ctx.arc(ex + 6 + look, e.y - 4, 1.8, 0, Math.PI * 2); ctx.fill();
       ctx.restore();
     });
+
+    // falling spiked balls
+    s.spikers.forEach(sp => {
+      const b = sp.ball;
+      if (!b) return;
+      const bx = b.x - cam;
+      if (bx < -60 || bx > W + 60) return;
+      ctx.save();
+      ctx.translate(bx, b.y);
+      ctx.rotate(b.spin);
+      ctx.fillStyle = '#3f7d2f';
+      for (let i = 0; i < 10; i++) {
+        const a = (i / 10) * Math.PI * 2;
+        ctx.beginPath();
+        ctx.moveTo(Math.cos(a - 0.22) * b.r * 0.85, Math.sin(a - 0.22) * b.r * 0.85);
+        ctx.lineTo(Math.cos(a) * (b.r + 7), Math.sin(a) * (b.r + 7));
+        ctx.lineTo(Math.cos(a + 0.22) * b.r * 0.85, Math.sin(a + 0.22) * b.r * 0.85);
+        ctx.closePath();
+        ctx.fill();
+      }
+      const g = ctx.createRadialGradient(-b.r * 0.3, -b.r * 0.3, 2, 0, 0, b.r);
+      g.addColorStop(0, '#8bc34a'); g.addColorStop(1, '#2f5d21');
+      ctx.fillStyle = g;
+      ctx.beginPath(); ctx.arc(0, 0, b.r, 0, Math.PI * 2); ctx.fill();
+      ctx.restore();
+    });
+
+
 
     // player (sprite)
     const p = s.player;
