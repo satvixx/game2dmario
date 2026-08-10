@@ -494,20 +494,26 @@
     const platforms = makePlatforms();
     return {
       player: {
-        x: 60, y: GROUND_Y - HERO_H, w: HERO_W, h: HERO_H,
+        x: 60, y: GROUND_Y - HERO_H * BASE_SCALE, w: HERO_W * BASE_SCALE, h: HERO_H * BASE_SCALE,
         vx: 0, vy: 0, onGround: true, face: 1,
-        coyote: 8, buffer: 0, holding: false,
-        scale: 1, targetScale: 1, invuln: 0, hitFx: 0
+        coyote: COYOTE, buffer: 0, holding: false,
+        scale: BASE_SCALE, targetScale: BASE_SCALE, invuln: 0, hitFx: 0, growFx: 0
       },
       platforms,
       coins: randomCoins(platforms),
       enemies: makeEnemies(),
       spikers: makeSpikers(),
+      fixedSpikes: makeFixedSpikes(platforms),
+      treasures: makeTreasures(platforms),
+      stars: makeStars(platforms),
       flag: { x: WORLD_W - 70, y: GROUND_Y - 96, w: 6, h: 96 },
       sparkles: [],
+      floats: [],
+      shake: 0,
+      collected: [],        // emoji badges shown top-left
+      lives: 0,             // extra lives from 🌟 (0-2)
       decor: makeDecor(),
       camX: 0,
-      lives: 2,
       score: 0,
       startTime: performance.now(),
       elapsed: 0,
@@ -518,22 +524,31 @@
 
 
   let warnTimer = null;
-  function showWarning() {
+  function showWarning(text) {
+    warnEl.querySelector('span').textContent = text || 'Ouch! One extra life used — be careful!';
     warnEl.classList.add('show');
     clearTimeout(warnTimer);
     warnTimer = setTimeout(() => warnEl.classList.remove('show'), 2200);
   }
 
-  // shared damage handling (patrolling enemy or falling spiked ball)
+  function floatText(s, x, y, text, color) {
+    s.floats.push({ x, y, text, color: color || '#ffd633', life: 70, max: 70 });
+  }
+
+  // shared damage handling (patrolling enemy, falling ball or fixed spike)
   function takeHit(s, p, enemy) {
-    s.lives--;
     if (s.lives > 0) {
-      p.targetScale = SHRINK;
-      p.invuln = 120;
+      s.lives--;
+      p.invuln = 130;
       p.hitFx = 40;
       hurtSound();
-      showWarning();
       hitBurst(p.x + p.w / 2, p.y + p.h / 2);
+      if (s.lives === 0) {
+        p.targetScale = BASE_SCALE;
+        showWarning('One life used — back to normal size!');
+      } else {
+        showWarning('One star lost — you still have 1 life!');
+      }
       if (enemy) { enemy.x = enemy.min + enemy.r; enemy.vx = Math.abs(enemy.vx); }
     } else {
       s.over = true; stopMusic(); loseSound();
@@ -542,6 +557,7 @@
       loseEl.classList.add('show');
     }
   }
+
 
 
 
