@@ -478,6 +478,27 @@
     warnTimer = setTimeout(() => warnEl.classList.remove('show'), 2200);
   }
 
+  // shared damage handling (patrolling enemy or falling spiked ball)
+  function takeHit(s, p, enemy) {
+    s.lives--;
+    if (s.lives > 0) {
+      p.targetScale = SHRINK;
+      p.invuln = 120;
+      p.hitFx = 40;
+      hurtSound();
+      showWarning();
+      hitBurst(p.x + p.w / 2, p.y + p.h / 2);
+      if (enemy) { enemy.x = enemy.min + enemy.r; enemy.vx = Math.abs(enemy.vx); }
+    } else {
+      s.over = true; stopMusic(); loseSound();
+      loseTimeEl.textContent = 'Time: ' + fmtTime(s.elapsed);
+      loseBestEl.textContent = bestText();
+      loseEl.classList.add('show');
+    }
+  }
+
+
+
   /* ---------- canvas creation (fresh canvas each restart, fixed size) ---------- */
   function createCanvas() {
     if (canvas) canvas.remove();
