@@ -156,7 +156,7 @@
   const GROUND_Y = H - GROUND_H;
   const GRAVITY = 0.58;
   const JUMP_V = -15.8;
-  const JUMP_CUT = 0.45;
+  const JUMP_CUT = 0.78;
   const SPEED = 5.2;
   const AIR_SPEED = 5.8;                  // slightly faster in the air for longer hops
 
@@ -320,7 +320,7 @@
   // vertical steps <= 90px, horizontal gaps <= 105px (comfortably inside jump range).
   function makePlatforms() {
     const platforms = [];
-    const LEVELS = [GROUND_Y - 95, GROUND_Y - 180, GROUND_Y - 262];
+    const LEVELS = [GROUND_Y - 86, GROUND_Y - 168, GROUND_Y - 248];
     let li = 0;
     let cursor = 150;
     for (let s = 0; s < SCREENS; s++) {
@@ -487,7 +487,8 @@
     keys[e.key] = false;
     if (isJumpKey(e.key) && state) {
       state.player.holding = false;
-      if (state.player.vy < 0) state.player.vy *= JUMP_CUT;
+      // never cut below the minimum hop that clears the lowest platform
+      if (state.player.vy < JUMP_V * JUMP_CUT) state.player.vy = JUMP_V * JUMP_CUT;
     }
   });
 
