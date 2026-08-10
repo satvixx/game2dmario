@@ -1029,31 +1029,68 @@
       ctx.restore();
     });
 
-    // falling spiked balls
+    // spiked balls (falling + fixed) share one look
+    const drawSpike = (sx, sy, r, spin) => {
+      ctx.save();
+      ctx.translate(sx, sy);
+      ctx.rotate(spin);
+      ctx.fillStyle = '#3f7d2f';
+      for (let i = 0; i < 10; i++) {
+        const a = (i / 10) * Math.PI * 2;
+        ctx.beginPath();
+        ctx.moveTo(Math.cos(a - 0.22) * r * 0.85, Math.sin(a - 0.22) * r * 0.85);
+        ctx.lineTo(Math.cos(a) * (r + 7), Math.sin(a) * (r + 7));
+        ctx.lineTo(Math.cos(a + 0.22) * r * 0.85, Math.sin(a + 0.22) * r * 0.85);
+        ctx.closePath();
+        ctx.fill();
+      }
+      const gg = ctx.createRadialGradient(-r * 0.3, -r * 0.3, 2, 0, 0, r);
+      gg.addColorStop(0, '#8bc34a'); gg.addColorStop(1, '#2f5d21');
+      ctx.fillStyle = gg;
+      ctx.beginPath(); ctx.arc(0, 0, r, 0, Math.PI * 2); ctx.fill();
+      ctx.restore();
+    };
+
     s.spikers.forEach(sp => {
       const b = sp.ball;
       if (!b) return;
       const bx = b.x - cam;
       if (bx < -60 || bx > W + 60) return;
+      drawSpike(bx, b.y, b.r, b.spin);
+    });
+
+    s.fixedSpikes.forEach(fs => {
+      const sx = fs.x - cam;
+      if (sx < -60 || sx > W + 60) return;
+      drawSpike(sx, fs.y, fs.r, fs.spin);
+    });
+
+    // treasure chests and stars
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    s.treasures.forEach(tr => {
+      if (tr.got) return;
+      const tx = tr.x - cam;
+      if (tx < -40 || tx > W + 40) return;
       ctx.save();
-      ctx.translate(bx, b.y);
-      ctx.rotate(b.spin);
-      ctx.fillStyle = '#3f7d2f';
-      for (let i = 0; i < 10; i++) {
-        const a = (i / 10) * Math.PI * 2;
-        ctx.beginPath();
-        ctx.moveTo(Math.cos(a - 0.22) * b.r * 0.85, Math.sin(a - 0.22) * b.r * 0.85);
-        ctx.lineTo(Math.cos(a) * (b.r + 7), Math.sin(a) * (b.r + 7));
-        ctx.lineTo(Math.cos(a + 0.22) * b.r * 0.85, Math.sin(a + 0.22) * b.r * 0.85);
-        ctx.closePath();
-        ctx.fill();
-      }
-      const g = ctx.createRadialGradient(-b.r * 0.3, -b.r * 0.3, 2, 0, 0, b.r);
-      g.addColorStop(0, '#8bc34a'); g.addColorStop(1, '#2f5d21');
-      ctx.fillStyle = g;
-      ctx.beginPath(); ctx.arc(0, 0, b.r, 0, Math.PI * 2); ctx.fill();
+      ctx.font = '30px system-ui, "Apple Color Emoji", "Segoe UI Emoji", sans-serif';
+      ctx.shadowColor = 'rgba(255,214,51,.85)'; ctx.shadowBlur = 14;
+      ctx.fillText('💰', tx, tr.y + Math.sin(tr.t) * 3);
       ctx.restore();
     });
+    s.stars.forEach(st => {
+      if (st.got) return;
+      const sx = st.x - cam;
+      if (sx < -40 || sx > W + 40) return;
+      ctx.save();
+      ctx.font = '30px system-ui, "Apple Color Emoji", "Segoe UI Emoji", sans-serif';
+      ctx.shadowColor = 'rgba(255,240,150,.9)'; ctx.shadowBlur = 16 + Math.sin(st.t * 2) * 6;
+      ctx.fillText('🌟', sx, st.y + Math.sin(st.t) * 4);
+      ctx.restore();
+    });
+    ctx.textAlign = 'left';
+
+
 
 
 
