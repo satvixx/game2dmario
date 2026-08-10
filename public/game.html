@@ -1101,8 +1101,18 @@
     ctx.beginPath(); ctx.ellipse(pxs + p.w / 2, p.y + p.h + 3, p.w / 2, 4, 0, 0, Math.PI * 2); ctx.fill();
 
     ctx.save();
+    if (p.growFx > 0) {
+      ctx.save();
+      ctx.globalAlpha = Math.max(0, p.growFx / 45) * 0.55;
+      const rg = ctx.createRadialGradient(pxs + p.w / 2, p.y + p.h / 2, 4, pxs + p.w / 2, p.y + p.h / 2, p.w * 1.6);
+      rg.addColorStop(0, '#fff3b0'); rg.addColorStop(1, 'rgba(255,224,102,0)');
+      ctx.fillStyle = rg;
+      ctx.beginPath(); ctx.arc(pxs + p.w / 2, p.y + p.h / 2, p.w * 1.6, 0, Math.PI * 2); ctx.fill();
+      ctx.restore();
+    }
     if (p.invuln > 0 && Math.floor(p.invuln / 5) % 2 === 0) ctx.globalAlpha = 0.45;
-    const pop = p.hitFx > 0 ? 1 + Math.sin(p.hitFx / 40 * Math.PI) * 0.12 : 1;
+    const pop = p.hitFx > 0 ? 1 + Math.sin(p.hitFx / 40 * Math.PI) * 0.12
+      : (p.growFx > 0 ? 1 + Math.sin(p.growFx / 45 * Math.PI) * 0.16 : 1);
     const dw = p.w * pop, dh = p.h * pop;
     const dx = pxs + (p.w - dw) / 2, dy = p.y + (p.h - dh);
     ctx.imageSmoothingEnabled = false;
@@ -1128,6 +1138,19 @@
       ctx.globalAlpha = 1;
     });
 
+    // floating "+50" style texts
+    ctx.save();
+    ctx.textAlign = 'center';
+    ctx.font = 'bold 24px system-ui, sans-serif';
+    s.floats.forEach(fl => {
+      ctx.globalAlpha = Math.max(0, Math.min(1, fl.life / (fl.max * 0.6)));
+      ctx.lineWidth = 4; ctx.strokeStyle = 'rgba(0,0,0,.55)';
+      ctx.strokeText(fl.text, fl.x - cam, fl.y);
+      ctx.fillStyle = fl.color;
+      ctx.fillText(fl.text, fl.x - cam, fl.y);
+    });
+    ctx.restore();
+
     // HUD — score
     ctx.fillStyle = 'rgba(0,0,0,.35)';
     ctx.beginPath(); ctx.roundRect(16, 16, 150, 42, 12); ctx.fill();
@@ -1139,16 +1162,18 @@
     ctx.textAlign = 'left';
     ctx.fillText('Score: ' + s.score, 58, 38);
 
-    // HUD — lives
-    ctx.fillStyle = 'rgba(0,0,0,.35)';
-    ctx.beginPath(); ctx.roundRect(180, 16, 108, 42, 12); ctx.fill();
-    ctx.font = 'bold 18px system-ui, sans-serif';
-    ctx.fillStyle = '#fff';
-    ctx.fillText('Lives', 196, 38);
-    for (let i = 0; i < 2; i++) {
-      ctx.fillStyle = i < s.lives ? '#ff5e5e' : 'rgba(255,255,255,.25)';
-      ctx.beginPath(); ctx.arc(248 + i * 22, 37, 8, 0, Math.PI * 2); ctx.fill();
+    // HUD — collected badges (🌟 lives held, 💰 treasures found)
+    const badges = [];
+    for (let i = 0; i < s.lives; i++) badges.push('🌟');
+    for (let i = 0; i < s.treasures.filter(t => t.got).length; i++) badges.push('💰');
+    if (badges.length) {
+      const bw = 20 + badges.length * 34;
+      ctx.fillStyle = 'rgba(0,0,0,.35)';
+      ctx.beginPath(); ctx.roundRect(180, 16, bw, 42, 12); ctx.fill();
+      ctx.font = '24px system-ui, "Apple Color Emoji", "Segoe UI Emoji", sans-serif';
+      badges.forEach((b, i) => ctx.fillText(b, 194 + i * 34, 39));
     }
+
 
     // HUD — timer (top right)
     ctx.fillStyle = 'rgba(0,0,0,.35)';
