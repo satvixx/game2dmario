@@ -725,10 +725,15 @@
         if (b.vy > 15) b.vy = 15;
         b.y += b.vy * dt;
         b.spin += 0.12 * dt;
-        if (b.y + b.r >= GROUND_Y) { sp.ball = null; sp.timer = SPIKE_INTERVAL; continue; }
+        if (b.y + b.r >= GROUND_Y) {
+          impactFx(b.x, GROUND_Y);
+          if (Math.abs(b.x - (p.x + p.w / 2)) < W * 0.6) { thudSound(); s.shake = 14; }
+          sp.ball = null; sp.timer = SPIKE_INTERVAL; continue;
+        }
         const bx = Math.max(p.x, Math.min(b.x, p.x + p.w));
         const by = Math.max(p.y, Math.min(b.y, p.y + p.h));
         if (p.invuln <= 0 && (bx - b.x) ** 2 + (by - b.y) ** 2 < b.r * b.r) {
+          impactFx(b.x, b.y); s.shake = 16;
           sp.ball = null; sp.timer = SPIKE_INTERVAL;
           takeHit(s, p, null);
           break;
@@ -739,6 +744,17 @@
       }
     }
 
+    // ---- fixed spiked balls ----
+    for (const fs of s.fixedSpikes) {
+      fs.spin += 0.02 * dt;
+      const fx2 = Math.max(p.x, Math.min(fs.x, p.x + p.w));
+      const fy2 = Math.max(p.y, Math.min(fs.y, p.y + p.h));
+      if (p.invuln <= 0 && (fx2 - fs.x) ** 2 + (fy2 - fs.y) ** 2 < fs.r * fs.r) {
+        s.shake = 14; impactFx(fs.x, fs.y);
+        takeHit(s, p, null);
+        break;
+      }
+    }
 
     // coins
     for (const c of s.coins) {
@@ -751,17 +767,45 @@
       }
     }
 
+    // treasure chests (+50)
+    for (const tr of s.treasures) {
+      if (tr.got) continue;
+      tr.t += 0.06 * dt;
+      if (p.x + p.w > tr.x - 18 && p.x < tr.x + 18 && p.y + p.h > tr.y - 18 && p.y < tr.y + 18) {
+        tr.got = true; s.score += 50;
+        treasureSound(); burst(tr.x, tr.y); burst(tr.x, tr.y - 10);
+        floatText(s, tr.x, tr.y - 20, '+50', '#ffd633');
+      }
+    }
+
+    // stars — grant an extra life and grow the hero
+    for (const st of s.stars) {
+      if (st.got) continue;
+      st.t += 0.06 * dt;
+      if (p.x + p.w > st.x - 18 && p.x < st.x + 18 && p.y + p.h > st.y - 18 && p.y < st.y + 18) {
+        st.got = true;
+        s.lives = Math.min(2, s.lives + 1);
+        p.targetScale = BIG_SCALE;
+        p.growFx = 45;
+        starSound(); starBurst(st.x, st.y);
+        floatText(s, st.x, st.y - 20, s.lives > 1 ? '2ND LIFE!' : 'EXTRA LIFE!', '#ffe066');
+      }
+    }
+
     // flag (right end of the last screen)
     const f = s.flag;
     if (p.x + p.w > f.x - 8 && p.x < f.x + 40 && p.y + p.h > f.y && p.y < f.y + f.h) {
       s.won = true; stopMusic(); winSound();
+      const bonus = s.lives * 50;           // unused 🌟 lives convert to 50 points each
+      if (bonus) s.score += bonus;
       const improved = saveBest(s.elapsed);
       winTimeEl.textContent = 'Time: ' + fmtTime(s.elapsed);
-      winScoreEl.textContent = 'Score: ' + s.score + ' / ' + s.coins.length;
+      winScoreEl.textContent = 'Score: ' + s.score + (bonus ? '  (includes 🌟 bonus +' + bonus + ')' : '');
       winBestEl.textContent = (improved ? '🏆 New best time! ' : '') + bestText();
       winEl.classList.add('show');
     }
   }
+
 
 
   function burst(x, y) {
