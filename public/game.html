@@ -637,6 +637,8 @@
 
     if (p.invuln > 0) p.invuln -= dt;
     if (p.hitFx > 0) p.hitFx -= dt;
+    if (p.growFx > 0) p.growFx -= dt;
+
     if (Math.abs(p.scale - p.targetScale) > 0.002) {
       const bottom = p.y + p.h;
       p.scale += (p.targetScale - p.scale) * 0.18 * dt;
