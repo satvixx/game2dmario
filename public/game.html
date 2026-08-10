@@ -395,6 +395,25 @@
     return enemies;
   }
 
+  // Falling spiked balls: 3-4 screens get one dropper each. Every ~2s it drops
+  // from the top of that screen at a random x and vanishes when it hits the ground.
+  function makeSpikers() {
+    const all = [];
+    for (let s = 1; s < SCREENS; s++) all.push(s);           // never on the starting screen
+    // shuffle then take 3 or 4 screens
+    for (let i = all.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [all[i], all[j]] = [all[j], all[i]]; }
+    const chosen = all.slice(0, Math.random() < 0.5 ? 3 : 4);
+    return chosen.map(s => ({
+      screen: s,
+      minX: s * W + 70,
+      maxX: s * W + W - (s === SCREENS - 1 ? 180 : 70),
+      timer: rnd(20, 100),   // frames until next drop
+      ball: null
+    }));
+  }
+
+  const SPIKE_INTERVAL = 120;   // ~2 seconds at 60fps
+
 
   function makeDecor() {
     const grass = [];
@@ -437,6 +456,7 @@
       platforms,
       coins: randomCoins(platforms),
       enemies: makeEnemies(),
+      spikers: makeSpikers(),
       flag: { x: WORLD_W - 70, y: GROUND_Y - 96, w: 6, h: 96 },
       sparkles: [],
       decor: makeDecor(),
