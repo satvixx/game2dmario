@@ -232,6 +232,9 @@
   const coinSound = () => { tone(880, 0.09, 'triangle', 0.10); setTimeout(() => tone(1320, 0.12, 'triangle', 0.09), 70); };
   const winSound  = () => [0,120,240,420].forEach((d,i) => setTimeout(() => tone([523,659,784,1047][i], 0.25, 'triangle', 0.1), d));
   const loseSound = () => tone(320, 0.5, 'sawtooth', 0.08, 90);
+  const starSound = () => [0,90,180,300].forEach((d,i) => setTimeout(() => tone([659,880,1047,1319][i], 0.18, 'triangle', 0.09), d));
+  const treasureSound = () => { tone(523, 0.12, 'triangle', 0.10, 784); setTimeout(() => tone(1047, 0.2, 'triangle', 0.09, 1568), 90); };
+  const thudSound = () => { tone(120, 0.22, 'sawtooth', 0.10, 45); setTimeout(() => tone(70, 0.18, 'sine', 0.09, 40), 30); };
 
   /* ---------- background music (upbeat, mellow synth-pop loop) ---------- */
   // 8-bar chord progression (Am - F - C - G style), warm pad + soft arp + light drums
