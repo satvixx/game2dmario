@@ -622,25 +622,33 @@
       const cx = Math.max(p.x, Math.min(e.x, p.x + p.w));
       const cy = Math.max(p.y, Math.min(e.y, p.y + p.h));
       if (p.invuln <= 0 && (cx - e.x) ** 2 + (cy - e.y) ** 2 < e.r * e.r) {
-        s.lives--;
-        if (s.lives > 0) {
-          p.targetScale = SHRINK;
-          p.invuln = 120;
-          p.hitFx = 40;
-          hurtSound();
-          showWarning();
-          hitBurst(p.x + p.w / 2, p.y + p.h / 2);
-          e.x = e.min + e.r;
-          e.vx = Math.abs(e.vx);
-        } else {
-          s.over = true; stopMusic(); loseSound();
-          loseTimeEl.textContent = 'Time: ' + fmtTime(s.elapsed);
-          loseBestEl.textContent = bestText();
-          loseEl.classList.add('show');
-        }
+        takeHit(s, p, e);
         break;
       }
     }
+
+    // ---- falling spiked balls ----
+    for (const sp of s.spikers) {
+      if (sp.ball) {
+        const b = sp.ball;
+        b.vy += GRAVITY * 0.85 * dt;
+        if (b.vy > 15) b.vy = 15;
+        b.y += b.vy * dt;
+        b.spin += 0.12 * dt;
+        if (b.y + b.r >= GROUND_Y) { sp.ball = null; sp.timer = SPIKE_INTERVAL; continue; }
+        const bx = Math.max(p.x, Math.min(b.x, p.x + p.w));
+        const by = Math.max(p.y, Math.min(b.y, p.y + p.h));
+        if (p.invuln <= 0 && (bx - b.x) ** 2 + (by - b.y) ** 2 < b.r * b.r) {
+          sp.ball = null; sp.timer = SPIKE_INTERVAL;
+          takeHit(s, p, null);
+          break;
+        }
+      } else {
+        sp.timer -= dt;
+        if (sp.timer <= 0) sp.ball = { x: rnd(sp.minX, sp.maxX), y: -20, vy: 1.5, r: 15, spin: 0 };
+      }
+    }
+
 
     // coins
     for (const c of s.coins) {
