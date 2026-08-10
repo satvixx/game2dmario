@@ -859,7 +859,11 @@
 
   function draw() {
     const s = state;
-    const cam = Math.round(s.camX * 2) / 2;
+    const shakeAmt = s.shake > 0 ? s.shake / 4 : 0;
+    const camShake = shakeAmt ? (Math.random() - 0.5) * shakeAmt : 0;
+    const cam = Math.round((s.camX + camShake) * 2) / 2;
+
+
 
 
     // sky
