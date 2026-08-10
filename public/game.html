@@ -156,12 +156,15 @@
   const GROUND_Y = H - GROUND_H;
   const GRAVITY = 0.58;
   const JUMP_V = -15.8;
-  const JUMP_CUT = 0.78;
+  const JUMP_CUT = 0.45;                  // reverted: short taps give short hops again
   const SPEED = 5.2;
   const AIR_SPEED = 5.8;                  // slightly faster in the air for longer hops
 
   const HERO_W = 48, HERO_H = 64;
-  const SHRINK = 0.72;
+  const BASE_SCALE = 0.88;                // normal size at the start of a run
+  const BIG_SCALE = 1.22;                 // powered-up size after grabbing a 🌟
+  const JUMP_BUFFER = 12;                 // frames an early jump press is remembered
+  const COYOTE = 10;                      // frames of grace after leaving a ledge
 
   const heroImg = new Image();
   heroImg.src = '/hero.png';
