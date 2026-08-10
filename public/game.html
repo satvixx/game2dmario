@@ -606,8 +606,12 @@
     });
     s.sparkles.forEach(sp => { sp.x += sp.vx * dt; sp.y += sp.vy * dt; sp.vy += 0.08 * dt; sp.life -= dt; });
     s.sparkles = s.sparkles.filter(sp => sp.life > 0);
+    s.floats.forEach(f => { f.y -= 0.7 * dt; f.life -= dt; });
+    s.floats = s.floats.filter(f => f.life > 0);
+    if (s.shake > 0) s.shake -= dt;
 
     if (s.over || s.won) return;
+
 
     s.elapsed = performance.now() - s.startTime;
 
