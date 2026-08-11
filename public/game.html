@@ -825,6 +825,7 @@
         tr.got = true; s.score += 50;
         treasureSound(); burst(tr.x, tr.y); burst(tr.x, tr.y - 10);
         floatText(s, tr.x, tr.y - 20, '+50', '#ffd633');
+        queueBadge(s, '💰', 42);      // badge appears just after the "+50" popup
       }
     }
 
@@ -839,6 +840,7 @@
         p.growFx = 45;
         starSound(); starBurst(st.x, st.y);
         floatText(s, st.x, st.y - 20, s.lives > 1 ? '2ND LIFE!' : 'EXTRA LIFE!', '#ffe066');
+        queueBadge(s, '🌟', 24);
       }
     }
 
@@ -846,14 +848,20 @@
     const f = s.flag;
     if (p.x + p.w > f.x - 8 && p.x < f.x + 40 && p.y + p.h > f.y && p.y < f.y + f.h) {
       s.won = true; stopMusic(); winSound();
-      const bonus = s.lives * 50;           // unused 🌟 lives convert to 50 points each
-      if (bonus) s.score += bonus;
-      const improved = saveBest(s.elapsed);
-      winTimeEl.textContent = 'Time: ' + fmtTime(s.elapsed);
-      winScoreEl.textContent = 'Score: ' + s.score + (bonus ? '  (includes 🌟 bonus +' + bonus + ')' : '');
-      winBestEl.textContent = (improved ? '🏆 New best time! ' : '') + bestText();
-      winEl.classList.add('show');
+      s.bonusStars = s.lives;               // unused 🌟 convert to +50 each, animated
+      s.lives = 0;
+      if (s.bonusStars > 0) s.winSeq = { left: s.bonusStars, t: 45 };
+      else showWin(s);
     }
+  }
+
+  function showWin(s) {
+    const bonus = (s.bonusStars || 0) * 50;
+    const improved = saveBest(s.elapsed);
+    winTimeEl.textContent = 'Time: ' + fmtTime(s.elapsed);
+    winScoreEl.textContent = 'Score: ' + s.score + (bonus ? '  (includes 🌟 bonus +' + bonus + ')' : '');
+    winBestEl.textContent = (improved ? '🏆 New best time! ' : '') + bestText();
+    winEl.classList.add('show');
   }
 
 
