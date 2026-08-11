@@ -538,10 +538,29 @@
     s.floats.push({ x, y, text, color: color || '#ffd633', life: 70, max: 70 });
   }
 
+  /* ---------- top-left badge flow ---------- */
+  const BADGE_X = 186, BADGE_STEP = 36, BADGE_Y = 37;
+  function badgeSlotX(i) { return BADGE_X + i * BADGE_STEP; }
+  function queueBadge(s, e, delay) { s.pendingBadges.push({ e, t: delay || 0 }); }
+  function popStarBadge(s) {
+    for (let i = s.badges.length - 1; i >= 0; i--) {
+      if (s.badges[i].e === '🌟') { s.badges.splice(i, 1); return i; }
+    }
+    // may still be queued — drop the queued one instead
+    for (let i = s.pendingBadges.length - 1; i >= 0; i--) {
+      if (s.pendingBadges[i].e === '🌟') { s.pendingBadges.splice(i, 1); return -1; }
+    }
+    return -1;
+  }
+  function hudFloat(s, x, y, text, color) {
+    s.hudFloats.push({ x, y, text, color: color || '#ffd633', life: 80, max: 80 });
+  }
+
   // shared damage handling (patrolling enemy, falling ball or fixed spike)
   function takeHit(s, p, enemy) {
     if (s.lives > 0) {
       s.lives--;
+      popStarBadge(s);
       p.invuln = 130;
       p.hitFx = 40;
       hurtSound();
