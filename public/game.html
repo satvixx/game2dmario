@@ -630,7 +630,35 @@
     s.sparkles = s.sparkles.filter(sp => sp.life > 0);
     s.floats.forEach(f => { f.y -= 0.7 * dt; f.life -= dt; });
     s.floats = s.floats.filter(f => f.life > 0);
+    s.hudFloats.forEach(f => { f.y -= 0.65 * dt; f.life -= dt; });
+    s.hudFloats = s.hudFloats.filter(f => f.life > 0);
     if (s.shake > 0) s.shake -= dt;
+
+    // badges queued behind their "+50" / pickup popup
+    for (const q of s.pendingBadges) q.t -= dt;
+    while (s.pendingBadges.length && s.pendingBadges[0].t <= 0) {
+      s.badges.push({ e: s.pendingBadges.shift().e, pop: 1 });
+    }
+    s.badges.forEach(b => { if (b.pop > 0) b.pop = Math.max(0, b.pop - 0.05 * dt); });
+
+    // win bonus: unused 🌟 fly off as +50 popups, one at a time
+    if (s.winSeq) {
+      const q = s.winSeq;
+      q.t -= dt;
+      if (q.t <= 0) {
+        if (q.left > 0) {
+          const idx = popStarBadge(s);
+          hudFloat(s, badgeSlotX(Math.max(0, idx)) + 12, BADGE_Y - 8, '+50', '#ffe066');
+          starSound();
+          s.score += 50;
+          q.left--;
+          q.t = 55;
+        } else {
+          s.winSeq = null;
+          showWin(s);
+        }
+      }
+    }
 
     if (s.over || s.won) return;
 
