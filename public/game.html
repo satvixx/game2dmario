@@ -452,9 +452,9 @@
     return scatterSpots(n, platforms, 1).map(sp => ({ x: sp.x, y: sp.y, got: false, t: Math.random() * 6 }));
   }
 
-  // 1-3 stars: each grants one extra life and makes the hero big
+  // 2-3 stars: each grants one extra life and makes the hero big
   function makeStars(platforms) {
-    const n = 1 + Math.floor(Math.random() * 3);
+    const n = 2 + Math.floor(Math.random() * 2);
     return scatterSpots(n, platforms, 1).map(sp => ({ x: sp.x, y: sp.y, got: false, t: Math.random() * 6 }));
   }
 
@@ -510,7 +510,10 @@
       sparkles: [],
       floats: [],
       shake: 0,
-      collected: [],        // emoji badges shown top-left
+      badges: [],           // emoji badges shown top-left: { e, pop }
+      pendingBadges: [],    // badges queued to appear after their popup
+      hudFloats: [],        // screen-space popups (win bonus)
+      winSeq: null,         // unused-star bonus animation
       lives: 0,             // extra lives from 🌟 (0-2)
       decor: makeDecor(),
       camX: 0,
@@ -535,10 +538,29 @@
     s.floats.push({ x, y, text, color: color || '#ffd633', life: 70, max: 70 });
   }
 
+  /* ---------- top-left badge flow ---------- */
+  const BADGE_X = 186, BADGE_STEP = 36, BADGE_Y = 37;
+  function badgeSlotX(i) { return BADGE_X + i * BADGE_STEP; }
+  function queueBadge(s, e, delay) { s.pendingBadges.push({ e, t: delay || 0 }); }
+  function popStarBadge(s) {
+    for (let i = s.badges.length - 1; i >= 0; i--) {
+      if (s.badges[i].e === '🌟') { s.badges.splice(i, 1); return i; }
+    }
+    // may still be queued — drop the queued one instead
+    for (let i = s.pendingBadges.length - 1; i >= 0; i--) {
+      if (s.pendingBadges[i].e === '🌟') { s.pendingBadges.splice(i, 1); return -1; }
+    }
+    return -1;
+  }
+  function hudFloat(s, x, y, text, color) {
+    s.hudFloats.push({ x, y, text, color: color || '#ffd633', life: 80, max: 80 });
+  }
+
   // shared damage handling (patrolling enemy, falling ball or fixed spike)
   function takeHit(s, p, enemy) {
     if (s.lives > 0) {
       s.lives--;
+      popStarBadge(s);
       p.invuln = 130;
       p.hitFx = 40;
       hurtSound();
@@ -608,7 +630,35 @@
     s.sparkles = s.sparkles.filter(sp => sp.life > 0);
     s.floats.forEach(f => { f.y -= 0.7 * dt; f.life -= dt; });
     s.floats = s.floats.filter(f => f.life > 0);
+    s.hudFloats.forEach(f => { f.y -= 0.65 * dt; f.life -= dt; });
+    s.hudFloats = s.hudFloats.filter(f => f.life > 0);
     if (s.shake > 0) s.shake -= dt;
+
+    // badges queued behind their "+50" / pickup popup
+    for (const q of s.pendingBadges) q.t -= dt;
+    while (s.pendingBadges.length && s.pendingBadges[0].t <= 0) {
+      s.badges.push({ e: s.pendingBadges.shift().e, pop: 1 });
+    }
+    s.badges.forEach(b => { if (b.pop > 0) b.pop = Math.max(0, b.pop - 0.05 * dt); });
+
+    // win bonus: unused 🌟 fly off as +50 popups, one at a time
+    if (s.winSeq) {
+      const q = s.winSeq;
+      q.t -= dt;
+      if (q.t <= 0) {
+        if (q.left > 0) {
+          const idx = popStarBadge(s);
+          hudFloat(s, badgeSlotX(Math.max(0, idx)) + 12, BADGE_Y - 8, '+50', '#ffe066');
+          starSound();
+          s.score += 50;
+          q.left--;
+          q.t = 55;
+        } else {
+          s.winSeq = null;
+          showWin(s);
+        }
+      }
+    }
 
     if (s.over || s.won) return;
 
@@ -775,6 +825,7 @@
         tr.got = true; s.score += 50;
         treasureSound(); burst(tr.x, tr.y); burst(tr.x, tr.y - 10);
         floatText(s, tr.x, tr.y - 20, '+50', '#ffd633');
+        queueBadge(s, '💰', 42);      // badge appears just after the "+50" popup
       }
     }
 
@@ -789,6 +840,7 @@
         p.growFx = 45;
         starSound(); starBurst(st.x, st.y);
         floatText(s, st.x, st.y - 20, s.lives > 1 ? '2ND LIFE!' : 'EXTRA LIFE!', '#ffe066');
+        queueBadge(s, '🌟', 24);
       }
     }
 
@@ -796,14 +848,20 @@
     const f = s.flag;
     if (p.x + p.w > f.x - 8 && p.x < f.x + 40 && p.y + p.h > f.y && p.y < f.y + f.h) {
       s.won = true; stopMusic(); winSound();
-      const bonus = s.lives * 50;           // unused 🌟 lives convert to 50 points each
-      if (bonus) s.score += bonus;
-      const improved = saveBest(s.elapsed);
-      winTimeEl.textContent = 'Time: ' + fmtTime(s.elapsed);
-      winScoreEl.textContent = 'Score: ' + s.score + (bonus ? '  (includes 🌟 bonus +' + bonus + ')' : '');
-      winBestEl.textContent = (improved ? '🏆 New best time! ' : '') + bestText();
-      winEl.classList.add('show');
+      s.bonusStars = s.lives;               // unused 🌟 convert to +50 each, animated
+      s.lives = 0;
+      if (s.bonusStars > 0) s.winSeq = { left: s.bonusStars, t: 45 };
+      else showWin(s);
     }
+  }
+
+  function showWin(s) {
+    const bonus = (s.bonusStars || 0) * 50;
+    const improved = saveBest(s.elapsed);
+    winTimeEl.textContent = 'Time: ' + fmtTime(s.elapsed);
+    winScoreEl.textContent = 'Score: ' + s.score + (bonus ? '  (includes 🌟 bonus +' + bonus + ')' : '');
+    winBestEl.textContent = (improved ? '🏆 New best time! ' : '') + bestText();
+    winEl.classList.add('show');
   }
 
 
@@ -1162,17 +1220,35 @@
     ctx.textAlign = 'left';
     ctx.fillText('Score: ' + s.score, 58, 38);
 
-    // HUD — collected badges (🌟 lives held, 💰 treasures found)
-    const badges = [];
-    for (let i = 0; i < s.lives; i++) badges.push('🌟');
-    for (let i = 0; i < s.treasures.filter(t => t.got).length; i++) badges.push('💰');
-    if (badges.length) {
-      const bw = 20 + badges.length * 34;
-      ctx.fillStyle = 'rgba(0,0,0,.35)';
-      ctx.beginPath(); ctx.roundRect(180, 16, bw, 42, 12); ctx.fill();
-      ctx.font = '24px system-ui, "Apple Color Emoji", "Segoe UI Emoji", sans-serif';
-      badges.forEach((b, i) => ctx.fillText(b, 194 + i * 34, 39));
-    }
+    // HUD — collected badges (🌟 lives held, 💰 treasures found) — no background plate
+    ctx.save();
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.font = '30px system-ui, "Apple Color Emoji", "Segoe UI Emoji", sans-serif';
+    s.badges.forEach((b, i) => {
+      const pop = b.pop || 0;
+      const sc = 1 + pop * 0.9;
+      ctx.save();
+      ctx.translate(badgeSlotX(i) + 12, BADGE_Y);
+      ctx.scale(sc, sc);
+      ctx.shadowColor = 'rgba(0,0,0,.75)';
+      ctx.shadowBlur = 8;
+      ctx.fillText(b.e, 0, 0);
+      ctx.restore();
+    });
+    // screen-space popups (win bonus)
+    ctx.font = 'bold 24px system-ui, sans-serif';
+    s.hudFloats.forEach(fl => {
+      ctx.globalAlpha = Math.max(0, Math.min(1, fl.life / (fl.max * 0.6)));
+      ctx.lineWidth = 4; ctx.strokeStyle = 'rgba(0,0,0,.6)';
+      ctx.strokeText(fl.text, fl.x, fl.y);
+      ctx.fillStyle = fl.color;
+      ctx.fillText(fl.text, fl.x, fl.y);
+    });
+    ctx.restore();
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'middle';
+
 
 
     // HUD — timer (top right)
