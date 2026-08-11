@@ -510,7 +510,10 @@
       sparkles: [],
       floats: [],
       shake: 0,
-      collected: [],        // emoji badges shown top-left
+      badges: [],           // emoji badges shown top-left: { e, pop }
+      pendingBadges: [],    // badges queued to appear after their popup
+      hudFloats: [],        // screen-space popups (win bonus)
+      winSeq: null,         // unused-star bonus animation
       lives: 0,             // extra lives from 🌟 (0-2)
       decor: makeDecor(),
       camX: 0,
