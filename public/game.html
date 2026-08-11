@@ -1482,6 +1482,8 @@
     raf = requestAnimationFrame(loop);
   }
 
+  window.__game = { get state() { return state; } };   // debug hook
+
   function start() {
     if (raf) cancelAnimationFrame(raf);
     keys = {};
