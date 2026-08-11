@@ -1220,17 +1220,35 @@
     ctx.textAlign = 'left';
     ctx.fillText('Score: ' + s.score, 58, 38);
 
-    // HUD — collected badges (🌟 lives held, 💰 treasures found)
-    const badges = [];
-    for (let i = 0; i < s.lives; i++) badges.push('🌟');
-    for (let i = 0; i < s.treasures.filter(t => t.got).length; i++) badges.push('💰');
-    if (badges.length) {
-      const bw = 20 + badges.length * 34;
-      ctx.fillStyle = 'rgba(0,0,0,.35)';
-      ctx.beginPath(); ctx.roundRect(180, 16, bw, 42, 12); ctx.fill();
-      ctx.font = '24px system-ui, "Apple Color Emoji", "Segoe UI Emoji", sans-serif';
-      badges.forEach((b, i) => ctx.fillText(b, 194 + i * 34, 39));
-    }
+    // HUD — collected badges (🌟 lives held, 💰 treasures found) — no background plate
+    ctx.save();
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.font = '30px system-ui, "Apple Color Emoji", "Segoe UI Emoji", sans-serif';
+    s.badges.forEach((b, i) => {
+      const pop = b.pop || 0;
+      const sc = 1 + pop * 0.9;
+      ctx.save();
+      ctx.translate(badgeSlotX(i) + 12, BADGE_Y);
+      ctx.scale(sc, sc);
+      ctx.shadowColor = 'rgba(0,0,0,.75)';
+      ctx.shadowBlur = 8;
+      ctx.fillText(b.e, 0, 0);
+      ctx.restore();
+    });
+    // screen-space popups (win bonus)
+    ctx.font = 'bold 24px system-ui, sans-serif';
+    s.hudFloats.forEach(fl => {
+      ctx.globalAlpha = Math.max(0, Math.min(1, fl.life / (fl.max * 0.6)));
+      ctx.lineWidth = 4; ctx.strokeStyle = 'rgba(0,0,0,.6)';
+      ctx.strokeText(fl.text, fl.x, fl.y);
+      ctx.fillStyle = fl.color;
+      ctx.fillText(fl.text, fl.x, fl.y);
+    });
+    ctx.restore();
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'middle';
+
 
 
     // HUD — timer (top right)
