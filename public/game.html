@@ -1028,10 +1028,11 @@
     const lerp3 = (a, b, t) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t];
     const rgbs = c => 'rgb(' + Math.round(c[0]) + ',' + Math.round(c[1]) + ',' + Math.round(c[2]) + ')';
     const STOPS = [
-      { top: [255, 156, 92],  mid: [255, 186, 142], bot: [255, 219, 176] },  // warm sunset
-      { top: [124, 78, 165],  mid: [188, 108, 152], bot: [255, 163, 138] },  // pink / purple dusk
-      { top: [30, 26, 78],    mid: [52, 44, 110],   bot: [96, 68, 124] },    // deep blue
-      { top: [10, 12, 40],    mid: [20, 22, 66],    bot: [38, 34, 88] }      // night
+      { top: [255, 122, 74],  mid: [255, 170, 110], bot: [255, 214, 150] },  // warm sunset orange
+      { top: [198, 88, 140],  mid: [246, 132, 132], bot: [255, 186, 140] },  // pink
+      { top: [92, 58, 148],   mid: [150, 84, 156],  bot: [242, 140, 132] },  // purple dusk
+      { top: [28, 26, 84],    mid: [48, 44, 116],   bot: [110, 74, 130] },   // deep blue
+      { top: [8, 10, 38],     mid: [16, 22, 68],    bot: [30, 38, 96] }      // night
     ];
     const segF = prog * (STOPS.length - 1);
     const seg = Math.min(STOPS.length - 2, Math.floor(segF));
@@ -1039,13 +1040,18 @@
     const A = STOPS[seg], B = STOPS[seg + 1];
     const night = smooth(clamp01((prog - 0.3) / 0.5));
     const nowS = performance.now() / 1000;
+    const skyTop = lerp3(A.top, B.top, segT);
+    const skyMid = lerp3(A.mid, B.mid, segT);
+    const skyBot = lerp3(A.bot, B.bot, segT);
 
     const sky = ctx.createLinearGradient(0, 0, 0, H);
-    sky.addColorStop(0, rgbs(lerp3(A.top, B.top, segT)));
-    sky.addColorStop(0.62, rgbs(lerp3(A.mid, B.mid, segT)));
-    sky.addColorStop(1, rgbs(lerp3(A.bot, B.bot, segT)));
+    sky.addColorStop(0, rgbs(skyTop));
+    sky.addColorStop(0.42, rgbs(lerp3(skyTop, skyMid, 0.75)));
+    sky.addColorStop(0.72, rgbs(skyMid));
+    sky.addColorStop(1, rgbs(skyBot));
     ctx.fillStyle = sky;
     ctx.fillRect(0, 0, W, H);
+
 
     // twinkling stars fading in with the night
     if (night > 0.02) {
