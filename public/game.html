@@ -519,9 +519,19 @@
     for (let i = 0; i < 18 * SCREENS; i++) {
       flowers.push({ x: Math.random() * WORLD_W, y: GROUND_Y + 12 + Math.random() * 34, c: ['#fff3b0','#ffd6e0','#e5d4ff'][i % 3] });
     }
+    // clouds spread across 3 parallax layers (far/mid/near)
     const clouds = [];
     for (let i = 0; i < 6 * SCREENS; i++) {
-      clouds.push({ x: Math.random() * WORLD_W, y: 30 + Math.random() * 140, s: 0.7 + Math.random() * 0.9, v: 0.14 + Math.random() * 0.28 });
+      const layer = i % 3; // 0 far, 1 mid, 2 near
+      const depth = [0.28, 0.5, 0.78][layer];
+      clouds.push({
+        x: Math.random() * WORLD_W,
+        y: [26 + Math.random() * 60, 50 + Math.random() * 90, 40 + Math.random() * 130][layer],
+        s: [0.5 + Math.random() * 0.35, 0.75 + Math.random() * 0.4, 1.0 + Math.random() * 0.6][layer],
+        v: [0.06, 0.13, 0.24][layer] * (0.7 + Math.random() * 0.7),
+        d: depth,
+        a: [0.42, 0.6, 0.8][layer]
+      });
     }
     // background features: trees on some screens, bushes / hills on others
     const trees = [], bushes = [], hills = [];
@@ -536,7 +546,19 @@
       }
       hills.push({ x: s * W + rnd(100, W - 100), s: rnd(0.9, 1.5) });
     }
-    return { grass, flowers, clouds, trees, bushes, hills };
+    // faded distant city skyline + far treeline (parallax silhouettes)
+    const buildings = [], farTrees = [];
+    for (let s = 0; s < SCREENS; s++) {
+      let bx = s * W + rnd(10, 60);
+      while (bx < (s + 1) * W - 40) {
+        const bw = rnd(38, 74);
+        buildings.push({ x: bx, w: bw, h: rnd(70, 190), win: Math.random() < 0.8, spire: Math.random() < 0.25 });
+        bx += bw + rnd(6, 34);
+      }
+      for (let i = 0; i < 9; i++) farTrees.push({ x: s * W + rnd(0, W), s: rnd(0.45, 0.85) });
+    }
+    return { grass, flowers, clouds, trees, bushes, hills, buildings, farTrees };
+
   }
 
   function newState() {
