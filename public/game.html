@@ -1067,22 +1067,45 @@
       ctx.restore();
     }
 
-    // sun sinking to the horizon
-    const sunA = 1 - smooth(clamp01((prog - 0.08) / 0.34));
+    // sun sinking to the horizon, with soft glow + rays
+    const sunA = 1 - smooth(clamp01((prog - 0.06) / 0.38));
     if (sunA > 0.01) {
-      const sunX = W * 0.72, sunY = 150 + prog * 240;
+      const sunX = W * 0.7, sunY = 190 + smooth(clamp01(prog / 0.45)) * 200;
       ctx.save();
       ctx.globalAlpha = sunA;
-      const sg = ctx.createRadialGradient(sunX, sunY, 8, sunX, sunY, 160);
-      sg.addColorStop(0, 'rgba(255,238,168,.95)');
-      sg.addColorStop(0.25, 'rgba(255,172,92,.45)');
-      sg.addColorStop(1, 'rgba(255,140,80,0)');
-      ctx.fillStyle = sg;
-      ctx.beginPath(); ctx.arc(sunX, sunY, 160, 0, Math.PI * 2); ctx.fill();
-      ctx.fillStyle = '#ffdf8a';
-      ctx.beginPath(); ctx.arc(sunX, sunY, 46, 0, Math.PI * 2); ctx.fill();
+      // broad warm haze
+      const hz = ctx.createRadialGradient(sunX, sunY, 20, sunX, sunY, 340);
+      hz.addColorStop(0, 'rgba(255,214,130,.55)');
+      hz.addColorStop(0.45, 'rgba(255,158,88,.22)');
+      hz.addColorStop(1, 'rgba(255,120,70,0)');
+      ctx.fillStyle = hz;
+      ctx.beginPath(); ctx.arc(sunX, sunY, 340, 0, Math.PI * 2); ctx.fill();
+      // gentle rays
+      ctx.save();
+      ctx.translate(sunX, sunY);
+      ctx.rotate(nowS * 0.03);
+      ctx.globalAlpha = sunA * 0.16;
+      ctx.fillStyle = 'rgba(255,236,178,1)';
+      for (let i = 0; i < 16; i++) {
+        ctx.rotate(Math.PI * 2 / 16);
+        ctx.beginPath();
+        ctx.moveTo(0, -50);
+        ctx.lineTo(14, -250 - 30 * Math.sin(nowS * 0.8 + i));
+        ctx.lineTo(-14, -250 - 30 * Math.sin(nowS * 0.8 + i));
+        ctx.closePath(); ctx.fill();
+      }
+      ctx.restore();
+      // core with soft falloff
+      ctx.globalAlpha = sunA;
+      const cg = ctx.createRadialGradient(sunX, sunY, 4, sunX, sunY, 62);
+      cg.addColorStop(0, 'rgba(255,252,232,1)');
+      cg.addColorStop(0.55, 'rgba(255,232,150,.95)');
+      cg.addColorStop(1, 'rgba(255,190,110,0)');
+      ctx.fillStyle = cg;
+      ctx.beginPath(); ctx.arc(sunX, sunY, 62, 0, Math.PI * 2); ctx.fill();
       ctx.restore();
     }
+
 
     // glowing moon rising later on
     const moonA = smooth(clamp01((prog - 0.42) / 0.3));
