@@ -1157,10 +1157,51 @@
       ctx.restore();
     }
 
+    // faded distant city skyline (slow parallax)
+    ctx.save();
+    const bTint = lerp3([116, 96, 148], [24, 22, 62], night);
+    ctx.globalAlpha = 0.3 + night * 0.16;
+    s.decor.buildings.forEach(b => {
+      const bx = b.x - cam * 0.18;
+      if (bx < -120 || bx > W + 120) return;
+      const by = GROUND_Y - 40 - b.h;
+      ctx.fillStyle = rgbs(bTint);
+      ctx.fillRect(bx, by, b.w, b.h + 40);
+      if (b.spire) ctx.fillRect(bx + b.w / 2 - 2, by - 22, 4, 22);
+      if (b.win) {
+        ctx.fillStyle = 'rgba(255,224,150,' + (0.18 + night * 0.6) + ')';
+        for (let wy = by + 10; wy < GROUND_Y - 44; wy += 16) {
+          for (let wx = bx + 7; wx < bx + b.w - 8; wx += 14) {
+            if ((Math.floor(wx * 0.7) + Math.floor(wy * 0.3)) % 3 === 0) continue;
+            ctx.fillRect(wx, wy, 5, 7);
+          }
+        }
+        ctx.fillStyle = rgbs(bTint);
+      }
+    });
+    ctx.restore();
+
+    // faded far treeline
+    ctx.save();
+    const ftTint = lerp3([86, 132, 104], [20, 34, 56], night);
+    ctx.globalAlpha = 0.34 + night * 0.1;
+    ctx.fillStyle = rgbs(ftTint);
+    s.decor.farTrees.forEach(t => {
+      const tx = t.x - cam * 0.32, k = t.s;
+      if (tx < -100 || tx > W + 100) return;
+      ctx.fillRect(tx - 3 * k, GROUND_Y - 46 * k, 6 * k, 50 * k);
+      ctx.beginPath();
+      ctx.arc(tx, GROUND_Y - 58 * k, 24 * k, 0, Math.PI * 2);
+      ctx.arc(tx - 18 * k, GROUND_Y - 44 * k, 16 * k, 0, Math.PI * 2);
+      ctx.arc(tx + 18 * k, GROUND_Y - 44 * k, 16 * k, 0, Math.PI * 2);
+      ctx.fill();
+    });
+    ctx.restore();
+
     // distant hills (parallax)
     ctx.save();
     ctx.globalAlpha = 0.35;
-    ctx.fillStyle = '#7bc47f';
+    ctx.fillStyle = rgbs(lerp3([123, 196, 127], [30, 58, 78], night));
     s.decor.hills.forEach(hl => {
       const hx = hl.x - cam * 0.5;
       if (hx < -300 || hx > W + 300) return;
@@ -1169,6 +1210,7 @@
       ctx.fill();
     });
     ctx.restore();
+
 
     // clouds tinted to the time of day, drawn in 3 parallax layers (far → near)
     const CSTOPS = [
