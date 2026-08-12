@@ -1096,9 +1096,9 @@
     }
 
     // sun sinking to the horizon, with soft glow + rays
-    const sunA = 1 - smooth(clamp01((prog - 0.06) / 0.38));
+    const sunA = 1 - smooth(clamp01((tl - 0.08) / 0.36));
     if (sunA > 0.01) {
-      const sunX = W * 0.7, sunY = 190 + smooth(clamp01(prog / 0.45)) * 200;
+      const sunX = W * 0.7, sunY = 190 + smooth(clamp01(tl / 0.42)) * 200;
       ctx.save();
       ctx.globalAlpha = sunA;
       // broad warm haze
@@ -1136,7 +1136,7 @@
 
 
     // glowing moon rising later on
-    const moonA = smooth(clamp01((prog - 0.42) / 0.3));
+    const moonA = smooth(clamp01((tl - 0.44) / 0.32));
     if (moonA > 0.01) {
       const mx = W * 0.78, my = 132 - moonA * 32;
       ctx.save();
