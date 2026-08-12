@@ -695,7 +695,7 @@
 
     s.decor.clouds.forEach(c => {
       c.x += c.v * dt;
-      if (c.x - 90 * c.s > WORLD_W) { c.x = -90 * c.s; c.y = 30 + Math.random() * 140; }
+      if (c.x - 90 * c.s > WORLD_W) { c.x = -90 * c.s; }
     });
     s.sparkles.forEach(sp => { sp.x += sp.vx * dt; sp.y += sp.vy * dt; sp.vy += 0.08 * dt; sp.life -= dt; });
     s.sparkles = s.sparkles.filter(sp => sp.life > 0);
