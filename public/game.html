@@ -1049,30 +1049,36 @@
     const smooth = x => x * x * (3 - 2 * x);
     const lerp3 = (a, b, t) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t];
     const rgbs = c => 'rgb(' + Math.round(c[0]) + ',' + Math.round(c[1]) + ',' + Math.round(c[2]) + ')';
+    // 4-band palettes: top (pink/violet) → upper → mid (orange near sun) → bottom (red/yellow)
     const STOPS = [
-      { top: [255, 122, 74],  mid: [255, 170, 110], bot: [255, 214, 150] },  // warm sunset orange
-      { top: [198, 88, 140],  mid: [246, 132, 132], bot: [255, 186, 140] },  // pink
-      { top: [92, 58, 148],   mid: [150, 84, 156],  bot: [242, 140, 132] },  // purple dusk
-      { top: [28, 26, 84],    mid: [48, 44, 116],   bot: [110, 74, 130] },   // deep blue
-      { top: [8, 10, 38],     mid: [16, 22, 68],    bot: [30, 38, 96] }      // night
+      { top: [186, 142, 216], up: [239, 150, 186], mid: [255, 152, 92],  bot: [255, 206, 108] }, // sunset
+      { top: [150, 106, 198], up: [222, 124, 168], mid: [250, 130, 106], bot: [255, 178, 112] }, // pink-violet
+      { top: [92, 58, 148],   up: [150, 84, 156],  mid: [206, 104, 122], bot: [246, 148, 116] }, // purple dusk
+      { top: [28, 26, 84],    up: [48, 44, 116],   mid: [92, 62, 130],   bot: [150, 92, 120] },  // deep blue
+      { top: [8, 10, 38],     up: [14, 18, 58],    mid: [20, 28, 80],    bot: [34, 44, 104] }    // night
     ];
-    const segF = prog * (STOPS.length - 1);
+    // eased global timeline so the day→night change is gradual, never abrupt
+    const tl = smooth(smooth(prog));
+    const segF = tl * (STOPS.length - 1);
     const seg = Math.min(STOPS.length - 2, Math.floor(segF));
     const segT = smooth(clamp01(segF - seg));
     const A = STOPS[seg], B = STOPS[seg + 1];
-    const night = smooth(clamp01((prog - 0.3) / 0.5));
+    const night = smooth(clamp01((tl - 0.34) / 0.46));
     const nowS = performance.now() / 1000;
     const skyTop = lerp3(A.top, B.top, segT);
+    const skyUp = lerp3(A.up, B.up, segT);
     const skyMid = lerp3(A.mid, B.mid, segT);
     const skyBot = lerp3(A.bot, B.bot, segT);
 
     const sky = ctx.createLinearGradient(0, 0, 0, H);
     sky.addColorStop(0, rgbs(skyTop));
-    sky.addColorStop(0.42, rgbs(lerp3(skyTop, skyMid, 0.75)));
-    sky.addColorStop(0.72, rgbs(skyMid));
+    sky.addColorStop(0.28, rgbs(skyUp));
+    sky.addColorStop(0.56, rgbs(lerp3(skyUp, skyMid, 0.7)));
+    sky.addColorStop(0.78, rgbs(skyMid));
     sky.addColorStop(1, rgbs(skyBot));
     ctx.fillStyle = sky;
     ctx.fillRect(0, 0, W, H);
+
 
 
     // twinkling stars fading in with the night
