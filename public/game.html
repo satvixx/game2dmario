@@ -519,9 +519,19 @@
     for (let i = 0; i < 18 * SCREENS; i++) {
       flowers.push({ x: Math.random() * WORLD_W, y: GROUND_Y + 12 + Math.random() * 34, c: ['#fff3b0','#ffd6e0','#e5d4ff'][i % 3] });
     }
+    // clouds spread across 3 parallax layers (far/mid/near)
     const clouds = [];
     for (let i = 0; i < 6 * SCREENS; i++) {
-      clouds.push({ x: Math.random() * WORLD_W, y: 30 + Math.random() * 140, s: 0.7 + Math.random() * 0.9, v: 0.14 + Math.random() * 0.28 });
+      const layer = i % 3; // 0 far, 1 mid, 2 near
+      const depth = [0.28, 0.5, 0.78][layer];
+      clouds.push({
+        x: Math.random() * WORLD_W,
+        y: [26 + Math.random() * 60, 50 + Math.random() * 90, 40 + Math.random() * 130][layer],
+        s: [0.5 + Math.random() * 0.35, 0.75 + Math.random() * 0.4, 1.0 + Math.random() * 0.6][layer],
+        v: [0.06, 0.13, 0.24][layer] * (0.7 + Math.random() * 0.7),
+        d: depth,
+        a: [0.42, 0.6, 0.8][layer]
+      });
     }
     // background features: trees on some screens, bushes / hills on others
     const trees = [], bushes = [], hills = [];
@@ -536,7 +546,19 @@
       }
       hills.push({ x: s * W + rnd(100, W - 100), s: rnd(0.9, 1.5) });
     }
-    return { grass, flowers, clouds, trees, bushes, hills };
+    // faded distant city skyline + far treeline (parallax silhouettes)
+    const buildings = [], farTrees = [];
+    for (let s = 0; s < SCREENS; s++) {
+      let bx = s * W + rnd(10, 60);
+      while (bx < (s + 1) * W - 40) {
+        const bw = rnd(38, 74);
+        buildings.push({ x: bx, w: bw, h: rnd(70, 190), win: Math.random() < 0.8, spire: Math.random() < 0.25 });
+        bx += bw + rnd(6, 34);
+      }
+      for (let i = 0; i < 9; i++) farTrees.push({ x: s * W + rnd(0, W), s: rnd(0.45, 0.85) });
+    }
+    return { grass, flowers, clouds, trees, bushes, hills, buildings, farTrees };
+
   }
 
   function newState() {
@@ -673,7 +695,7 @@
 
     s.decor.clouds.forEach(c => {
       c.x += c.v * dt;
-      if (c.x - 90 * c.s > WORLD_W) { c.x = -90 * c.s; c.y = 30 + Math.random() * 140; }
+      if (c.x - 90 * c.s > WORLD_W) { c.x = -90 * c.s; }
     });
     s.sparkles.forEach(sp => { sp.x += sp.vx * dt; sp.y += sp.vy * dt; sp.vy += 0.08 * dt; sp.life -= dt; });
     s.sparkles = s.sparkles.filter(sp => sp.life > 0);
@@ -1027,30 +1049,36 @@
     const smooth = x => x * x * (3 - 2 * x);
     const lerp3 = (a, b, t) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t];
     const rgbs = c => 'rgb(' + Math.round(c[0]) + ',' + Math.round(c[1]) + ',' + Math.round(c[2]) + ')';
+    // 4-band palettes: top (pink/violet) → upper → mid (orange near sun) → bottom (red/yellow)
     const STOPS = [
-      { top: [255, 122, 74],  mid: [255, 170, 110], bot: [255, 214, 150] },  // warm sunset orange
-      { top: [198, 88, 140],  mid: [246, 132, 132], bot: [255, 186, 140] },  // pink
-      { top: [92, 58, 148],   mid: [150, 84, 156],  bot: [242, 140, 132] },  // purple dusk
-      { top: [28, 26, 84],    mid: [48, 44, 116],   bot: [110, 74, 130] },   // deep blue
-      { top: [8, 10, 38],     mid: [16, 22, 68],    bot: [30, 38, 96] }      // night
+      { top: [186, 142, 216], up: [239, 150, 186], mid: [255, 152, 92],  bot: [255, 206, 108] }, // sunset
+      { top: [150, 106, 198], up: [222, 124, 168], mid: [250, 130, 106], bot: [255, 178, 112] }, // pink-violet
+      { top: [92, 58, 148],   up: [150, 84, 156],  mid: [206, 104, 122], bot: [246, 148, 116] }, // purple dusk
+      { top: [28, 26, 84],    up: [48, 44, 116],   mid: [92, 62, 130],   bot: [150, 92, 120] },  // deep blue
+      { top: [8, 10, 38],     up: [14, 18, 58],    mid: [20, 28, 80],    bot: [34, 44, 104] }    // night
     ];
-    const segF = prog * (STOPS.length - 1);
+    // eased global timeline so the day→night change is gradual, never abrupt
+    const tl = smooth(smooth(prog));
+    const segF = tl * (STOPS.length - 1);
     const seg = Math.min(STOPS.length - 2, Math.floor(segF));
     const segT = smooth(clamp01(segF - seg));
     const A = STOPS[seg], B = STOPS[seg + 1];
-    const night = smooth(clamp01((prog - 0.3) / 0.5));
+    const night = smooth(clamp01((tl - 0.34) / 0.46));
     const nowS = performance.now() / 1000;
     const skyTop = lerp3(A.top, B.top, segT);
+    const skyUp = lerp3(A.up, B.up, segT);
     const skyMid = lerp3(A.mid, B.mid, segT);
     const skyBot = lerp3(A.bot, B.bot, segT);
 
     const sky = ctx.createLinearGradient(0, 0, 0, H);
     sky.addColorStop(0, rgbs(skyTop));
-    sky.addColorStop(0.42, rgbs(lerp3(skyTop, skyMid, 0.75)));
-    sky.addColorStop(0.72, rgbs(skyMid));
+    sky.addColorStop(0.28, rgbs(skyUp));
+    sky.addColorStop(0.56, rgbs(lerp3(skyUp, skyMid, 0.7)));
+    sky.addColorStop(0.78, rgbs(skyMid));
     sky.addColorStop(1, rgbs(skyBot));
     ctx.fillStyle = sky;
     ctx.fillRect(0, 0, W, H);
+
 
 
     // twinkling stars fading in with the night
@@ -1068,9 +1096,9 @@
     }
 
     // sun sinking to the horizon, with soft glow + rays
-    const sunA = 1 - smooth(clamp01((prog - 0.06) / 0.38));
+    const sunA = 1 - smooth(clamp01((tl - 0.08) / 0.36));
     if (sunA > 0.01) {
-      const sunX = W * 0.7, sunY = 190 + smooth(clamp01(prog / 0.45)) * 200;
+      const sunX = W * 0.7, sunY = 190 + smooth(clamp01(tl / 0.42)) * 200;
       ctx.save();
       ctx.globalAlpha = sunA;
       // broad warm haze
@@ -1108,7 +1136,7 @@
 
 
     // glowing moon rising later on
-    const moonA = smooth(clamp01((prog - 0.42) / 0.3));
+    const moonA = smooth(clamp01((tl - 0.44) / 0.32));
     if (moonA > 0.01) {
       const mx = W * 0.78, my = 132 - moonA * 32;
       ctx.save();
@@ -1129,10 +1157,51 @@
       ctx.restore();
     }
 
+    // faded distant city skyline (slow parallax)
+    ctx.save();
+    const bTint = lerp3([116, 96, 148], [24, 22, 62], night);
+    ctx.globalAlpha = 0.3 + night * 0.16;
+    s.decor.buildings.forEach(b => {
+      const bx = b.x - cam * 0.18;
+      if (bx < -120 || bx > W + 120) return;
+      const by = GROUND_Y - 40 - b.h;
+      ctx.fillStyle = rgbs(bTint);
+      ctx.fillRect(bx, by, b.w, b.h + 40);
+      if (b.spire) ctx.fillRect(bx + b.w / 2 - 2, by - 22, 4, 22);
+      if (b.win) {
+        ctx.fillStyle = 'rgba(255,224,150,' + (0.18 + night * 0.6) + ')';
+        for (let wy = by + 10; wy < GROUND_Y - 44; wy += 16) {
+          for (let wx = bx + 7; wx < bx + b.w - 8; wx += 14) {
+            if ((Math.floor(wx * 0.7) + Math.floor(wy * 0.3)) % 3 === 0) continue;
+            ctx.fillRect(wx, wy, 5, 7);
+          }
+        }
+        ctx.fillStyle = rgbs(bTint);
+      }
+    });
+    ctx.restore();
+
+    // faded far treeline
+    ctx.save();
+    const ftTint = lerp3([86, 132, 104], [20, 34, 56], night);
+    ctx.globalAlpha = 0.34 + night * 0.1;
+    ctx.fillStyle = rgbs(ftTint);
+    s.decor.farTrees.forEach(t => {
+      const tx = t.x - cam * 0.32, k = t.s;
+      if (tx < -100 || tx > W + 100) return;
+      ctx.fillRect(tx - 3 * k, GROUND_Y - 46 * k, 6 * k, 50 * k);
+      ctx.beginPath();
+      ctx.arc(tx, GROUND_Y - 58 * k, 24 * k, 0, Math.PI * 2);
+      ctx.arc(tx - 18 * k, GROUND_Y - 44 * k, 16 * k, 0, Math.PI * 2);
+      ctx.arc(tx + 18 * k, GROUND_Y - 44 * k, 16 * k, 0, Math.PI * 2);
+      ctx.fill();
+    });
+    ctx.restore();
+
     // distant hills (parallax)
     ctx.save();
     ctx.globalAlpha = 0.35;
-    ctx.fillStyle = '#7bc47f';
+    ctx.fillStyle = rgbs(lerp3([123, 196, 127], [30, 58, 78], night));
     s.decor.hills.forEach(hl => {
       const hx = hl.x - cam * 0.5;
       if (hx < -300 || hx > W + 300) return;
@@ -1142,24 +1211,27 @@
     });
     ctx.restore();
 
-    // clouds tinted to the time of day (warm → pink → purple → deep blue)
+
+    // clouds tinted to the time of day, drawn in 3 parallax layers (far → near)
     const CSTOPS = [
-      { hi: [255, 226, 198], lo: [255, 168, 128] },  // sunset: peach
-      { hi: [255, 206, 214], lo: [236, 138, 150] },  // pink
+      { hi: [255, 232, 214], lo: [255, 172, 140] },  // sunset: peach
+      { hi: [255, 208, 220], lo: [236, 138, 156] },  // pink
       { hi: [206, 168, 226], lo: [140, 96, 172] },   // purple
       { hi: [110, 118, 196], lo: [58, 62, 132] },    // dusk blue
       { hi: [64, 78, 156],   lo: [26, 32, 84] }      // night
     ];
-    const cF = prog * (CSTOPS.length - 1);
+    const cF = tl * (CSTOPS.length - 1);
     const cI = Math.min(CSTOPS.length - 2, Math.floor(cF));
     const cT = smooth(clamp01(cF - cI));
     const cHi = lerp3(CSTOPS[cI].hi, CSTOPS[cI + 1].hi, cT);
     const cLo = lerp3(CSTOPS[cI].lo, CSTOPS[cI + 1].lo, cT);
     ctx.save();
-    ctx.globalAlpha = 0.72 - night * 0.14;
-    s.decor.clouds.forEach(c => {
-      const k = c.s, cx = c.x - cam * 0.6;
-      if (cx < -180 || cx > W + 180) return;
+    const layered = s.decor.clouds.slice().sort((a, b) => a.d - b.d);
+    layered.forEach(c => {
+      const k = c.s, cx = c.x - cam * c.d;
+      if (cx < -220 || cx > W + 220) return;
+      const base = (c.a || 0.7) * (0.92 - night * 0.2);
+      ctx.globalAlpha = base;
       const g = ctx.createLinearGradient(0, c.y - 30 * k, 0, c.y + 24 * k);
       g.addColorStop(0, rgbs(cHi));
       g.addColorStop(1, rgbs(cLo));
@@ -1171,14 +1243,14 @@
       ctx.ellipse(cx + 8 * k, c.y - 14 * k, 26 * k, 18 * k, 0, 0, Math.PI * 2);
       ctx.fill();
       // soft top highlight
-      ctx.globalAlpha *= 0.55;
+      ctx.globalAlpha = base * 0.55;
       ctx.fillStyle = 'rgba(255,255,255,' + (0.35 - night * 0.25) + ')';
       ctx.beginPath();
       ctx.ellipse(cx + 6 * k, c.y - 18 * k, 20 * k, 9 * k, 0, 0, Math.PI * 2);
       ctx.fill();
-      ctx.globalAlpha /= 0.55;
     });
     ctx.restore();
+
 
 
     // trees
