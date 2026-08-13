@@ -1200,7 +1200,7 @@
     const bTint = lerp3([116, 96, 148], [24, 22, 62], night);
     ctx.globalAlpha = 0.3 + night * 0.16;
     s.decor.buildings.forEach(b => {
-      const bx = b.x - cam * 0.18;
+      const bx = b.x - cam * 0.12;
       if (bx < -120 || bx > W + 120) return;
       const by = GROUND_Y - 40 - b.h;
       ctx.fillStyle = rgbs(bTint);
