@@ -1225,7 +1225,7 @@
     ctx.globalAlpha = 0.34 + night * 0.1;
     ctx.fillStyle = rgbs(ftTint);
     s.decor.farTrees.forEach(t => {
-      const tx = t.x - cam * 0.32, k = t.s;
+      const tx = t.x - cam * 0.24, k = t.s;
       if (tx < -100 || tx > W + 100) return;
       ctx.fillRect(tx - 3 * k, GROUND_Y - 46 * k, 6 * k, 50 * k);
       ctx.beginPath();
