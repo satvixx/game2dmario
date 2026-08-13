@@ -1241,13 +1241,43 @@
     ctx.globalAlpha = 0.35;
     ctx.fillStyle = rgbs(lerp3([123, 196, 127], [30, 58, 78], night));
     s.decor.hills.forEach(hl => {
-      const hx = hl.x - cam * 0.5;
+      const hx = hl.x - cam * 0.45;
       if (hx < -300 || hx > W + 300) return;
       ctx.beginPath();
       ctx.ellipse(hx, GROUND_Y + 6, 190 * hl.s, 90 * hl.s, 0, Math.PI, 0);
       ctx.fill();
     });
     ctx.restore();
+
+    // mid-depth faded forest (between hills and the playfield trees)
+    ctx.save();
+    const mfTint = lerp3([74, 148, 100], [22, 46, 62], night);
+    ctx.fillStyle = rgbs(mfTint);
+    s.decor.midForest.forEach(t => {
+      const tx = t.x - cam * 0.62, k = t.s;
+      if (tx < -140 || tx > W + 140) return;
+      ctx.globalAlpha = 0.4 + night * 0.08;
+      if (t.pine) {
+        ctx.fillRect(tx - 3 * k, GROUND_Y - 30 * k, 6 * k, 34 * k);
+        for (let l = 0; l < 3; l++) {
+          const yb = GROUND_Y - 26 * k - l * 26 * k;
+          ctx.beginPath();
+          ctx.moveTo(tx, yb - 44 * k);
+          ctx.lineTo(tx + (30 - l * 6) * k, yb);
+          ctx.lineTo(tx - (30 - l * 6) * k, yb);
+          ctx.closePath(); ctx.fill();
+        }
+      } else {
+        ctx.fillRect(tx - 4 * k, GROUND_Y - 56 * k, 8 * k, 60 * k);
+        ctx.beginPath();
+        ctx.arc(tx, GROUND_Y - 74 * k, 30 * k, 0, Math.PI * 2);
+        ctx.arc(tx - 24 * k, GROUND_Y - 56 * k, 20 * k, 0, Math.PI * 2);
+        ctx.arc(tx + 24 * k, GROUND_Y - 56 * k, 20 * k, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    });
+    ctx.restore();
+
 
 
     // clouds tinted to the time of day, drawn in 3 parallax layers (far → near)
