@@ -1149,55 +1149,40 @@
     }
 
 
-    // sun sinking to the horizon, with layered bloom + rays
+    // low evening sun: small, warm, soft orange glow (no harsh white core)
     const sunA = 1 - smooth(clamp01((tl - 0.08) / 0.36));
-    const sunX = W * 0.7, sunY = 190 + smooth(clamp01(tl / 0.42)) * 200;
+    const sunX = W * 0.7, sunY = 300 + smooth(clamp01(tl / 0.42)) * 150;
     if (sunA > 0.01) {
-      const pulse = 1 + 0.02 * Math.sin(nowS * 0.9);
+      const pulse = 1 + 0.012 * Math.sin(nowS * 0.7);
       ctx.save();
       ctx.globalCompositeOperation = 'lighter';
-      // outermost atmospheric bloom
-      ctx.globalAlpha = sunA * 0.55;
-      const hz = ctx.createRadialGradient(sunX, sunY, 20, sunX, sunY, 420 * pulse);
-      hz.addColorStop(0, 'rgba(255,206,124,.55)');
-      hz.addColorStop(0.35, 'rgba(255,158,88,.24)');
-      hz.addColorStop(0.7, 'rgba(255,120,70,.09)');
-      hz.addColorStop(1, 'rgba(255,110,70,0)');
+      // wide, very soft atmospheric warmth
+      ctx.globalAlpha = sunA * 0.32;
+      const hz = ctx.createRadialGradient(sunX, sunY, 16, sunX, sunY, 260 * pulse);
+      hz.addColorStop(0, 'rgba(255,168,96,.40)');
+      hz.addColorStop(0.4, 'rgba(255,138,74,.16)');
+      hz.addColorStop(1, 'rgba(255,120,70,0)');
       ctx.fillStyle = hz;
-      ctx.beginPath(); ctx.arc(sunX, sunY, 420 * pulse, 0, Math.PI * 2); ctx.fill();
-      // inner bloom
-      ctx.globalAlpha = sunA * 0.85;
-      const hz2 = ctx.createRadialGradient(sunX, sunY, 10, sunX, sunY, 170 * pulse);
-      hz2.addColorStop(0, 'rgba(255,244,196,.75)');
-      hz2.addColorStop(0.5, 'rgba(255,196,110,.32)');
-      hz2.addColorStop(1, 'rgba(255,160,90,0)');
+      ctx.beginPath(); ctx.arc(sunX, sunY, 260 * pulse, 0, Math.PI * 2); ctx.fill();
+      // close halo
+      ctx.globalAlpha = sunA * 0.5;
+      const hz2 = ctx.createRadialGradient(sunX, sunY, 6, sunX, sunY, 95 * pulse);
+      hz2.addColorStop(0, 'rgba(255,196,116,.55)');
+      hz2.addColorStop(0.55, 'rgba(255,158,88,.22)');
+      hz2.addColorStop(1, 'rgba(255,140,80,0)');
       ctx.fillStyle = hz2;
-      ctx.beginPath(); ctx.arc(sunX, sunY, 170 * pulse, 0, Math.PI * 2); ctx.fill();
-      // gentle rays
-      ctx.save();
-      ctx.translate(sunX, sunY);
-      ctx.rotate(nowS * 0.03);
-      ctx.globalAlpha = sunA * 0.13;
-      ctx.fillStyle = 'rgba(255,236,178,1)';
-      for (let i = 0; i < 20; i++) {
-        ctx.rotate(Math.PI * 2 / 20);
-        const len = 250 + 34 * Math.sin(nowS * 0.7 + i);
-        ctx.beginPath();
-        ctx.moveTo(0, -50);
-        ctx.lineTo(11, -len);
-        ctx.lineTo(-11, -len);
-        ctx.closePath(); ctx.fill();
-      }
+      ctx.beginPath(); ctx.arc(sunX, sunY, 95 * pulse, 0, Math.PI * 2); ctx.fill();
       ctx.restore();
-      // core with soft falloff
-      ctx.globalAlpha = sunA;
-      const cg = ctx.createRadialGradient(sunX, sunY - 6, 4, sunX, sunY, 66 * pulse);
-      cg.addColorStop(0, 'rgba(255,255,248,1)');
-      cg.addColorStop(0.4, 'rgba(255,246,206,.98)');
-      cg.addColorStop(0.72, 'rgba(255,214,124,.8)');
-      cg.addColorStop(1, 'rgba(255,180,100,0)');
+      // warm disc, soft edge, drawn normally so it never blows out to white
+      ctx.save();
+      ctx.globalAlpha = sunA * 0.95;
+      const cg = ctx.createRadialGradient(sunX, sunY - 3, 2, sunX, sunY, 36 * pulse);
+      cg.addColorStop(0, 'rgba(255,214,150,1)');
+      cg.addColorStop(0.55, 'rgba(255,178,102,.95)');
+      cg.addColorStop(0.85, 'rgba(255,146,82,.55)');
+      cg.addColorStop(1, 'rgba(255,132,78,0)');
       ctx.fillStyle = cg;
-      ctx.beginPath(); ctx.arc(sunX, sunY, 66 * pulse, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.arc(sunX, sunY, 36 * pulse, 0, Math.PI * 2); ctx.fill();
       ctx.restore();
     }
 
