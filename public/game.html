@@ -1084,19 +1084,27 @@
 
 
 
-    // twinkling stars fading in with the night
+    // twinkling stars fading in with the night (two depths for ambience)
     if (night > 0.02) {
       ctx.save();
-      for (let i = 0; i < 80; i++) {
-        const sxp = (((i * 137.5) - s.camX * 0.1) % W + W) % W;
-        const syp = 16 + ((i * 71.3) % 260);
-        const tw = 0.5 + 0.5 * Math.sin(nowS * (1.3 + (i % 5) * 0.4) + i);
-        ctx.globalAlpha = night * tw * 0.9;
-        ctx.fillStyle = i % 7 === 0 ? '#ffe9a8' : '#ffffff';
-        ctx.beginPath(); ctx.arc(sxp, syp, i % 11 === 0 ? 1.9 : 1.2, 0, Math.PI * 2); ctx.fill();
+      for (let i = 0; i < 190; i++) {
+        const depth = i % 3 === 0 ? 0.05 : 0.12;
+        const sxp = (((i * 137.5) - s.camX * depth) % W + W) % W;
+        const syp = 10 + ((i * 71.3) % 300);
+        const tw = 0.45 + 0.55 * Math.sin(nowS * (1.1 + (i % 7) * 0.35) + i);
+        const near = i % 3 !== 0;
+        ctx.globalAlpha = night * tw * (near ? 0.9 : 0.5);
+        ctx.fillStyle = i % 9 === 0 ? '#ffe9a8' : (i % 5 === 0 ? '#cfe4ff' : '#ffffff');
+        const r = i % 13 === 0 ? 2.1 : (near ? 1.25 : 0.85);
+        ctx.beginPath(); ctx.arc(sxp, syp, r, 0, Math.PI * 2); ctx.fill();
+        if (i % 13 === 0) {
+          ctx.globalAlpha = night * tw * 0.35;
+          ctx.beginPath(); ctx.arc(sxp, syp, 5.5, 0, Math.PI * 2); ctx.fill();
+        }
       }
       ctx.restore();
     }
+
 
     // sun sinking to the horizon, with soft glow + rays
     const sunA = 1 - smooth(clamp01((tl - 0.08) / 0.36));
