@@ -118,6 +118,41 @@
   #controls button:hover { background: rgba(0,0,0,.55); }
   #controls button.off { opacity: .55; }
   .overlay .best { color: #ffd34d; font-weight: 700; }
+  /* ---- start screen ---- */
+  #startS {
+    background: radial-gradient(120% 100% at 70% 25%, rgba(255,168,92,.30), rgba(24,18,54,.72) 55%, rgba(10,10,32,.86));
+    backdrop-filter: blur(2px);
+    gap: 10px;
+  }
+  #startS .kicker {
+    font-size: 13px; letter-spacing: 6px; text-transform: uppercase;
+    opacity: .75; margin-bottom: 2px;
+  }
+  #startS h1 {
+    font-size: 62px; line-height: 1.05; letter-spacing: 1px;
+    background: linear-gradient(180deg, #fff6d0 0%, #ffd34d 45%, #ff8a3d 100%);
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+    filter: drop-shadow(0 8px 22px rgba(0,0,0,.55));
+    animation: titleIn .7s cubic-bezier(.2,.9,.25,1.4) both;
+  }
+  @keyframes titleIn { from { opacity: 0; transform: translateY(18px) scale(.94); } to { opacity: 1; transform: none; } }
+  #startS .sub { font-size: 15px; opacity: .8; max-width: 460px; }
+  #playBtn {
+    margin-top: 14px;
+    padding: 16px 56px;
+    font-size: 22px; letter-spacing: 3px;
+    background: linear-gradient(180deg, #ffe083, #ffc02e);
+    box-shadow: 0 10px 26px rgba(255,170,40,.35), 0 0 0 0 rgba(255,205,90,.55);
+    transition: transform .18s cubic-bezier(.2,.9,.25,1.5), box-shadow .25s ease, filter .2s ease;
+    animation: playPulse 2.2s ease-in-out infinite;
+  }
+  #playBtn:hover { transform: translateY(-3px) scale(1.06); filter: brightness(1.06); box-shadow: 0 16px 34px rgba(255,170,40,.5); }
+  #playBtn:active { transform: translateY(1px) scale(.95); box-shadow: 0 6px 14px rgba(255,170,40,.35); }
+  @keyframes playPulse {
+    0%, 100% { box-shadow: 0 10px 26px rgba(255,170,40,.35), 0 0 0 0 rgba(255,205,90,.45); }
+    50% { box-shadow: 0 10px 26px rgba(255,170,40,.35), 0 0 0 14px rgba(255,205,90,0); }
+  }
+  #startS .hint { margin-top: 10px; font-size: 13px; opacity: .7; }
 </style>
 </head>
 <body>
@@ -127,6 +162,13 @@
     <div id="controls">
       <button id="pauseBtn" title="Pause" aria-label="Pause or resume">❚❚</button>
       <button id="soundBtn" title="Sound on/off" aria-label="Toggle sound">🔊</button>
+    </div>
+    <div class="overlay show" id="startS">
+      <p class="kicker">A canvas platformer</p>
+      <h1>Mario: Off Script</h1>
+      <p class="sub">Run through 10 hand-stitched worlds from sunset to night. Grab coins, dodge the blobs, and reach the golden flag.</p>
+      <button id="playBtn">PLAY</button>
+      <p class="hint">← → to move · Space to jump · P pause · M sound</p>
     </div>
     <div class="overlay" id="lose">
       <h1>Game Over</h1>
@@ -173,6 +215,7 @@
   const loseEl = document.getElementById('lose');
   const winEl = document.getElementById('win');
   const warnEl = document.getElementById('warn');
+  const startEl = document.getElementById('startS');
   const winScoreEl = document.getElementById('winScore');
   const winTimeEl = document.getElementById('winTime');
   const winBestEl = document.getElementById('winBest');
@@ -1705,6 +1748,7 @@
     keys = {};
     lastT = 0;
     setPaused(false);
+    startEl.classList.remove('show');
     loseEl.classList.remove('show');
     winEl.classList.remove('show');
     clearTimeout(warnTimer);
@@ -1741,7 +1785,20 @@
 
   document.querySelectorAll('[data-restart]').forEach(b => b.addEventListener('click', () => { start(); b.blur(); }));
 
-  start();
+  // ---- start screen: build the world and show one static frame until PLAY ----
+  function showStartScreen() {
+    if (raf) cancelAnimationFrame(raf);
+    raf = 0;
+    stopMusic();
+    keys = {};
+    createCanvas();
+    state = newState();
+    draw();
+    startEl.classList.add('show');
+  }
+  document.getElementById('playBtn').addEventListener('click', e => { e.currentTarget.blur(); start(); });
+
+  showStartScreen();
 
 })();
 </script>
