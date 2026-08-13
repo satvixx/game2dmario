@@ -124,19 +124,27 @@
     backdrop-filter: blur(2px);
     gap: 10px;
   }
+  #startS {
+    background:
+      radial-gradient(ellipse 620px 380px at 50% 42%, rgba(6,10,18,.66) 0%, rgba(6,10,18,.34) 55%, rgba(6,10,18,0) 100%),
+      rgba(8, 13, 22, .42);
+  }
   #startS .kicker {
     font-size: 13px; letter-spacing: 6px; text-transform: uppercase;
-    opacity: .75; margin-bottom: 2px;
+    opacity: .85; margin-bottom: 2px; text-shadow: 0 2px 10px rgba(0,0,0,.8);
   }
   #startS h1 {
     font-size: 62px; line-height: 1.05; letter-spacing: 1px;
-    background: linear-gradient(180deg, #fff6d0 0%, #ffd34d 45%, #ff8a3d 100%);
+    background: linear-gradient(180deg, #ffeeb8 0%, #ffcf62 45%, #ff9448 100%);
     -webkit-background-clip: text; background-clip: text; color: transparent;
-    filter: drop-shadow(0 8px 22px rgba(0,0,0,.55));
+    filter: drop-shadow(0 4px 2px rgba(0,0,0,.6)) drop-shadow(0 10px 26px rgba(0,0,0,.7));
     animation: titleIn .7s cubic-bezier(.2,.9,.25,1.4) both;
   }
   @keyframes titleIn { from { opacity: 0; transform: translateY(18px) scale(.94); } to { opacity: 1; transform: none; } }
-  #startS .sub { font-size: 15px; opacity: .8; max-width: 460px; }
+  #startS .sub {
+    font-size: 15px; opacity: .92; max-width: 460px;
+    text-shadow: 0 2px 8px rgba(0,0,0,.85), 0 0 22px rgba(0,0,0,.6);
+  }
   #playBtn {
     margin-top: 14px;
     padding: 16px 56px;
