@@ -1351,28 +1351,6 @@
       ctx.fill();
     });
 
-    // faded ferns / undergrowth on the grass strip
-    ctx.save();
-    s.decor.ferns.forEach(f => {
-      const fx = f.x - cam, k = f.s;
-      if (fx < -60 || fx > W + 60) return;
-      const sway = Math.sin(nowS * 0.9 + f.t) * 2.2 * k;
-      ctx.globalAlpha = 0.3;
-      ctx.strokeStyle = rgbs(lerp3([214, 255, 208], [120, 190, 160], night));
-      ctx.lineWidth = 2 * k;
-      for (let b = -2; b <= 2; b++) {
-        ctx.beginPath();
-        ctx.moveTo(fx, GROUND_Y + 2);
-        ctx.quadraticCurveTo(fx + b * 6 * k, GROUND_Y - 12 * k, fx + b * 11 * k + sway, GROUND_Y - 22 * k);
-        ctx.stroke();
-      }
-      ctx.globalAlpha = 0.22;
-      ctx.fillStyle = rgbs(lerp3([70, 160, 96], [26, 70, 74], night));
-      ctx.beginPath();
-      ctx.ellipse(fx, GROUND_Y + 1, 16 * k, 6 * k, 0, Math.PI, 0);
-      ctx.fill();
-    });
-    ctx.restore();
 
 
 
@@ -1412,6 +1390,29 @@
       }
       ctx.fillStyle = '#fff6c2';
       ctx.beginPath(); ctx.arc(fx, f.y, 2, 0, Math.PI * 2); ctx.fill();
+    });
+    ctx.restore();
+
+    // faded ferns / undergrowth on the grass strip
+    ctx.save();
+    s.decor.ferns.forEach(f => {
+      const fx = f.x - cam, k = f.s;
+      if (fx < -60 || fx > W + 60) return;
+      const sway = Math.sin(nowS * 0.9 + f.t) * 2.2 * k;
+      ctx.globalAlpha = 0.3;
+      ctx.strokeStyle = rgbs(lerp3([214, 255, 208], [120, 190, 160], night));
+      ctx.lineWidth = 2 * k;
+      for (let b = -2; b <= 2; b++) {
+        ctx.beginPath();
+        ctx.moveTo(fx, GROUND_Y + 2);
+        ctx.quadraticCurveTo(fx + b * 6 * k, GROUND_Y - 12 * k, fx + b * 11 * k + sway, GROUND_Y - 22 * k);
+        ctx.stroke();
+      }
+      ctx.globalAlpha = 0.22;
+      ctx.fillStyle = rgbs(lerp3([70, 160, 96], [26, 70, 74], night));
+      ctx.beginPath();
+      ctx.ellipse(fx, GROUND_Y + 1, 16 * k, 6 * k, 0, Math.PI, 0);
+      ctx.fill();
     });
     ctx.restore();
 
