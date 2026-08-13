@@ -547,7 +547,7 @@
       hills.push({ x: s * W + rnd(100, W - 100), s: rnd(0.9, 1.5) });
     }
     // faded distant city skyline + far treeline (parallax silhouettes)
-    const buildings = [], farTrees = [];
+    const buildings = [], farTrees = [], midForest = [], ferns = [];
     for (let s = 0; s < SCREENS; s++) {
       let bx = s * W + rnd(10, 60);
       while (bx < (s + 1) * W - 40) {
@@ -555,9 +555,12 @@
         buildings.push({ x: bx, w: bw, h: rnd(70, 190), win: Math.random() < 0.8, spire: Math.random() < 0.25 });
         bx += bw + rnd(6, 34);
       }
-      for (let i = 0; i < 9; i++) farTrees.push({ x: s * W + rnd(0, W), s: rnd(0.45, 0.85) });
+      for (let i = 0; i < 18; i++) farTrees.push({ x: s * W + rnd(0, W), s: rnd(0.4, 0.9) });
+      for (let i = 0; i < 12; i++) midForest.push({ x: s * W + rnd(0, W), s: rnd(0.65, 1.15), pine: Math.random() < 0.45 });
+      for (let i = 0; i < 14; i++) ferns.push({ x: s * W + rnd(0, W), s: rnd(0.6, 1.3), t: Math.random() * 6.28 });
     }
-    return { grass, flowers, clouds, trees, bushes, hills, buildings, farTrees };
+    return { grass, flowers, clouds, trees, bushes, hills, buildings, farTrees, midForest, ferns };
+
 
   }
 
