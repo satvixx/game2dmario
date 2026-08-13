@@ -1774,6 +1774,14 @@
   window.addEventListener('keydown', e => {
     if (e.key === 'p' || e.key === 'P') { if (state && !state.over && !state.won) setPaused(!paused); }
     if (e.key === 'm' || e.key === 'M') soundBtn.click();
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      const vis = document.querySelector('.overlay.show');
+      if (vis) {
+        const btn = vis.querySelector('button');
+        if (btn) btn.click();
+      }
+    }
   });
 
   document.querySelectorAll('[data-restart]').forEach(b => b.addEventListener('click', () => { start(); b.blur(); }));
