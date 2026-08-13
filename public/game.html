@@ -1106,44 +1106,71 @@
     }
 
 
-    // sun sinking to the horizon, with soft glow + rays
+    // sun sinking to the horizon, with layered bloom + rays
     const sunA = 1 - smooth(clamp01((tl - 0.08) / 0.36));
+    const sunX = W * 0.7, sunY = 190 + smooth(clamp01(tl / 0.42)) * 200;
     if (sunA > 0.01) {
-      const sunX = W * 0.7, sunY = 190 + smooth(clamp01(tl / 0.42)) * 200;
+      const pulse = 1 + 0.02 * Math.sin(nowS * 0.9);
       ctx.save();
-      ctx.globalAlpha = sunA;
-      // broad warm haze
-      const hz = ctx.createRadialGradient(sunX, sunY, 20, sunX, sunY, 340);
-      hz.addColorStop(0, 'rgba(255,214,130,.55)');
-      hz.addColorStop(0.45, 'rgba(255,158,88,.22)');
-      hz.addColorStop(1, 'rgba(255,120,70,0)');
+      ctx.globalCompositeOperation = 'lighter';
+      // outermost atmospheric bloom
+      ctx.globalAlpha = sunA * 0.55;
+      const hz = ctx.createRadialGradient(sunX, sunY, 20, sunX, sunY, 420 * pulse);
+      hz.addColorStop(0, 'rgba(255,206,124,.55)');
+      hz.addColorStop(0.35, 'rgba(255,158,88,.24)');
+      hz.addColorStop(0.7, 'rgba(255,120,70,.09)');
+      hz.addColorStop(1, 'rgba(255,110,70,0)');
       ctx.fillStyle = hz;
-      ctx.beginPath(); ctx.arc(sunX, sunY, 340, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.arc(sunX, sunY, 420 * pulse, 0, Math.PI * 2); ctx.fill();
+      // inner bloom
+      ctx.globalAlpha = sunA * 0.85;
+      const hz2 = ctx.createRadialGradient(sunX, sunY, 10, sunX, sunY, 170 * pulse);
+      hz2.addColorStop(0, 'rgba(255,244,196,.75)');
+      hz2.addColorStop(0.5, 'rgba(255,196,110,.32)');
+      hz2.addColorStop(1, 'rgba(255,160,90,0)');
+      ctx.fillStyle = hz2;
+      ctx.beginPath(); ctx.arc(sunX, sunY, 170 * pulse, 0, Math.PI * 2); ctx.fill();
       // gentle rays
       ctx.save();
       ctx.translate(sunX, sunY);
       ctx.rotate(nowS * 0.03);
-      ctx.globalAlpha = sunA * 0.16;
+      ctx.globalAlpha = sunA * 0.13;
       ctx.fillStyle = 'rgba(255,236,178,1)';
-      for (let i = 0; i < 16; i++) {
-        ctx.rotate(Math.PI * 2 / 16);
+      for (let i = 0; i < 20; i++) {
+        ctx.rotate(Math.PI * 2 / 20);
+        const len = 250 + 34 * Math.sin(nowS * 0.7 + i);
         ctx.beginPath();
         ctx.moveTo(0, -50);
-        ctx.lineTo(14, -250 - 30 * Math.sin(nowS * 0.8 + i));
-        ctx.lineTo(-14, -250 - 30 * Math.sin(nowS * 0.8 + i));
+        ctx.lineTo(11, -len);
+        ctx.lineTo(-11, -len);
         ctx.closePath(); ctx.fill();
       }
       ctx.restore();
       // core with soft falloff
       ctx.globalAlpha = sunA;
-      const cg = ctx.createRadialGradient(sunX, sunY, 4, sunX, sunY, 62);
-      cg.addColorStop(0, 'rgba(255,252,232,1)');
-      cg.addColorStop(0.55, 'rgba(255,232,150,.95)');
-      cg.addColorStop(1, 'rgba(255,190,110,0)');
+      const cg = ctx.createRadialGradient(sunX, sunY - 6, 4, sunX, sunY, 66 * pulse);
+      cg.addColorStop(0, 'rgba(255,255,248,1)');
+      cg.addColorStop(0.4, 'rgba(255,246,206,.98)');
+      cg.addColorStop(0.72, 'rgba(255,214,124,.8)');
+      cg.addColorStop(1, 'rgba(255,180,100,0)');
       ctx.fillStyle = cg;
-      ctx.beginPath(); ctx.arc(sunX, sunY, 62, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.arc(sunX, sunY, 66 * pulse, 0, Math.PI * 2); ctx.fill();
       ctx.restore();
     }
+
+    // horizon haze band — warm at sunset, cool mist at night
+    {
+      const hazeTop = GROUND_Y - 190, hazeH = 190 + GROUND_H;
+      const hb = ctx.createLinearGradient(0, hazeTop, 0, hazeTop + hazeH);
+      const warm = 1 - night;
+      hb.addColorStop(0, 'rgba(' + (255 - night * 160) + ',' + (190 - night * 130) + ',' + (150 + night * 40) + ',0)');
+      hb.addColorStop(0.55, 'rgba(' + (255 - night * 170) + ',' + (178 - night * 120) + ',' + (140 + night * 60) + ',' + (0.16 * warm + 0.12 * night) + ')');
+      hb.addColorStop(1, 'rgba(' + (255 - night * 180) + ',' + (166 - night * 110) + ',' + (135 + night * 75) + ',' + (0.3 * warm + 0.2 * night) + ')');
+      ctx.fillStyle = hb;
+      ctx.fillRect(0, hazeTop, W, hazeH);
+    }
+
+
 
 
     // glowing moon rising later on
