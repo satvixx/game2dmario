@@ -1,4 +1,4 @@
-# 2D Mario game
+# Mario: Off Script game
 
 You are a software developer creating a game. Create an HTML5 canvas game in a single html file as follows:
 1. Draw a green strip of ground along the bottom of the screen then add a red square character standing on it. Let me move the character left and right using the arrow keys, and don't let it walk off the edges of the screen.
